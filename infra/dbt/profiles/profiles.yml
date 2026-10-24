@@ -1,0 +1,12 @@
+etl_pet:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: "{{ env_var('CLOUDBERRY_HOST') }}"
+      port: "{{ env_var('CLOUDBERRY_PORT') | int }}"
+      user: "{{ env_var('CLOUDBERRY_USER') }}"
+      password: "{{ env_var('CLOUDBERRY_PASSWORD') }}"
+      dbname: etl
+      schema: dbt_dev
+      threads: 2

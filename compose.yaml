@@ -1,0 +1,260 @@
+name: etl-pet
+
+x-airflow-common: &airflow-common
+  build:
+    context: ./infra/airflow
+  image: etl-pet-airflow:3.3.0
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &airflow-env
+    ETL_PROJECT_ROOT: ${ETL_PROJECT_ROOT}
+    PYTHONPATH: /opt/etl_pet/src
+    MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+    MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+    CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+    CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    KINOPOISK_API_KEY: ${KINOPOISK_API_KEY:-}
+    AIRFLOW_CONN_MINIO_S3: '{"conn_type": "aws", "login": "${MINIO_ROOT_USER}", "password": "${MINIO_ROOT_PASSWORD}", "extra": {"endpoint_url": "http://minio:9000", "region_name": "us-east-1", "config_kwargs": {"s3": {"addressing_style": "path"}}}}'
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_DB_PASSWORD}@airflow-db/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-api-server:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+    - ./src:/opt/etl_pet/src:ro
+  depends_on:
+    airflow-db:
+      condition: service_healthy
+
+services:
+  airflow-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U airflow -d airflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow-common
+    command: version
+    environment:
+      <<: *airflow-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+
+  airflow-api-server:
+    <<: *airflow-common
+    command: api-server
+    ports:
+      - "127.0.0.1:18080:8080"
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, curl, --fail, http://localhost:8080/api/v2/monitor/health]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    group_add:
+      - "${DOCKER_GID:-0}"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./airflow/plugins:/opt/airflow/plugins
+      - ./src:/opt/etl_pet/src:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-api-server:
+        condition: service_healthy
+    restart: unless-stopped
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    command: dag-processor
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    restart: unless-stopped
+
+  minio-init:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
+    entrypoint: ["/bin/sh", "-c"]
+    command: >-
+      "until mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do sleep 2; done;
+      mc mb --ignore-existing local/etl-raw;
+      mc mb --ignore-existing local/etl-cleaned"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      minio:
+        condition: service_started
+
+  spark-master:
+    build:
+      context: ./infra/spark
+    image: etl-pet-spark:4.2.0
+    entrypoint: [/opt/spark/bin/spark-class]
+    command: [org.apache.spark.deploy.master.Master, --host, spark-master, --webui-port, "8080"]
+    ports:
+      - "127.0.0.1:8081:8080"
+    healthcheck:
+      test: [CMD, bash, -c, "echo > /dev/tcp/spark-master/7077"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
+  spark-worker:
+    build:
+      context: ./infra/spark
+    image: etl-pet-spark:4.2.0
+    entrypoint: [/opt/spark/bin/spark-class]
+    command: [org.apache.spark.deploy.worker.Worker, --cores, "2", --memory, 4g, spark://spark-master:7077]
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: us-east-1
+    depends_on:
+      spark-master:
+        condition: service_healthy
+    restart: unless-stopped
+
+  spark-submit:
+    build:
+      context: ./infra/spark
+    image: etl-pet-spark:4.2.0
+    profiles: [tools]
+    environment:
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      AWS_REGION: us-east-1
+      CLOUDBERRY_HOST: cloudberry
+      CLOUDBERRY_PORT: "7000"
+      CLOUDBERRY_DATABASE: etl
+      CLOUDBERRY_USER: gpadmin
+      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+    volumes:
+      - ./spark/jobs:/workspace/spark/jobs:ro
+    working_dir: /workspace/spark/jobs
+    entrypoint: [/opt/spark/bin/spark-submit]
+
+  cloudberry:
+    build:
+      context: ./infra/cloudberry
+    image: etl-pet-cloudberry:2.1.0
+    hostname: cloudberry
+    shm_size: 2gb
+    # gpstop has to finish before Docker sends SIGKILL (default is 10s).
+    stop_grace_period: 2m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    environment:
+      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+    ports:
+      - "127.0.0.1:7000:7000"
+    volumes:
+      - cloudberry-data:/var/lib/cloudberry
+    healthcheck:
+      test: [CMD-SHELL, "su - gpadmin -c 'source /usr/local/cloudberry-db/cloudberry-env.sh && pg_isready -h 127.0.0.1 -p 7000 -U gpadmin'" ]
+      interval: 15s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+    restart: unless-stopped
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8.31.2
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    environment:
+      CLICKHOUSE_DB: analytics
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "127.0.0.1:8123:8123"
+      - "127.0.0.1:9002:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+    healthcheck:
+      test: [CMD-SHELL, 'clickhouse-client --user "$${CLICKHOUSE_USER}" --password "$${CLICKHOUSE_PASSWORD}" --query "SELECT 1"']
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  dbt:
+    build:
+      context: ./infra/dbt
+    image: etl-pet-dbt:1.10.2
+    profiles: [tools]
+    environment:
+      DBT_PROFILES_DIR: /workspace/profiles
+      CLOUDBERRY_HOST: cloudberry
+      CLOUDBERRY_PORT: "7000"
+      CLOUDBERRY_USER: gpadmin
+      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+    volumes:
+      - ./dbt:/workspace/dbt
+      - ./infra/dbt/profiles:/workspace/profiles:ro
+    working_dir: /workspace/dbt
+    entrypoint: [dbt]
+
+networks:
+  default:
+    name: etl-pet-net
+
+volumes:
+  airflow-db-data:
+  minio-data:
+  cloudberry-data:
+  clickhouse-data:
