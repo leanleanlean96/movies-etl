@@ -12,5 +12,6 @@ RUN pip install --no-cache-dir \
     "apache-airflow-providers-amazon==9.31.0" \
     "apache-airflow-providers-docker==4.5.7" \
     "apache-airflow-providers-http==6.0.4" \
+    "apache-airflow-providers-smtp==3.0.1" \
     "boto3>=1.35,<2" \
     "requests>=2.32,<3"

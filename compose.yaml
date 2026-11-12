@@ -14,6 +14,9 @@ x-airflow-common: &airflow-common
     CLICKHOUSE_USER: ${CLICKHOUSE_USER}
     CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
     KINOPOISK_API_KEY: ${KINOPOISK_API_KEY:-}
+    AIRFLOW_ALERT_EMAIL: ${AIRFLOW_ALERT_EMAIL:-}
+    AIRFLOW_CONN_SMTP_ALERTS: ${AIRFLOW_CONN_SMTP_ALERTS:-}
+    AIRFLOW__API__BASE_URL: ${AIRFLOW_PUBLIC_URL:-http://localhost:18080}
     AIRFLOW_CONN_MINIO_S3: '{"conn_type": "aws", "login": "${MINIO_ROOT_USER}", "password": "${MINIO_ROOT_PASSWORD}", "extra": {"endpoint_url": "http://minio:9000", "region_name": "us-east-1", "config_kwargs": {"s3": {"addressing_style": "path"}}}}'
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
