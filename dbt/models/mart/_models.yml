@@ -1,0 +1,129 @@
+version: 2
+models:
+- name: mart_catalog_year_genre
+  description: Каталог на конец UTC-дня; 0 — неизвестная связь, год может быть NULL.
+    Группы пересекаются.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - snapshot_date_sk
+        - production_year
+        - genre_sk
+  columns:
+  - name: snapshot_date_sk
+    data_tests:
+    - not_null
+  - name: production_year
+    data_tests: []
+  - name: genre_sk
+    data_tests:
+    - not_null
+- name: mart_catalog_year_country
+  description: Каталог на конец UTC-дня; 0 — неизвестная связь, год может быть NULL.
+    Группы пересекаются.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - snapshot_date_sk
+        - production_year
+        - country_sk
+  columns:
+  - name: snapshot_date_sk
+    data_tests:
+    - not_null
+  - name: production_year
+    data_tests: []
+  - name: country_sk
+    data_tests:
+    - not_null
+- name: mart_movie_scores_current
+  description: Одна текущая оценка фильма, без размножения через мосты.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+    - unique
+- name: mart_budget_current_by_currency
+  description: Текущие суммы по исходному обозначению валюты; агрегаты только для
+    подтверждённого кода.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - currency_sk
+  columns:
+  - name: currency_sk
+    data_tests:
+    - not_null
+    - unique
+- name: mart_box_office_current_by_market_currency
+  description: Текущие суммы по исходному обозначению валюты; агрегаты только для
+    подтверждённого кода.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - market_sk
+        - currency_sk
+  columns:
+  - name: market_sk
+    data_tests:
+    - not_null
+  - name: currency_sk
+    data_tests:
+    - not_null
+- name: mart_budget_vs_box_office
+  description: Сопоставление бюджета и сборов; отношение только при одной подтверждённой
+    валюте и бюджете > 0.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+        - market_sk
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+  - name: market_sk
+    data_tests:
+    - not_null
+- name: mart_movie_popularity_weekly
+  description: Состояния на границах ISO-недели; отрицательные дельты допустимы, отсутствующий
+    baseline не заменяется нулём.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - week_start_date
+        - movie_id
+  columns:
+  - name: week_start_date
+    data_tests:
+    - not_null
+  - name: movie_id
+    data_tests:
+    - not_null
+- name: mart_top250_daily_changes
+  description: Входы, выходы и движения только между полными снимками соседних UTC-дней;
+    разрывы не скрываются.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - snapshot_date_sk
+        - movie_id
+  columns:
+  - name: snapshot_date_sk
+    data_tests:
+    - not_null
+  - name: movie_id
+    data_tests:
+    - not_null

@@ -1,0 +1,32 @@
+version: 2
+seeds:
+- name: currency_mapping
+  config:
+    column_types:
+      currency_sk: integer
+      source_currency_value: text
+      currency_code: text
+      currency_name: text
+  columns:
+  - name: currency_sk
+    data_tests:
+    - not_null
+    - unique
+  - name: source_currency_value
+    data_tests:
+    - unique
+- name: market_mapping
+  config:
+    column_types:
+      market_sk: integer
+      market_code: text
+      market_name: text
+  columns:
+  - name: market_sk
+    data_tests:
+    - not_null
+    - unique
+  - name: market_code
+    data_tests:
+    - not_null
+    - unique
