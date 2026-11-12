@@ -26,4 +26,7 @@ RUN set -eu; \
     wget -q "https://repo.maven.apache.org/maven2/com/clickhouse/clickhouse-jdbc/${CLICKHOUSE_JDBC_VERSION}/clickhouse-jdbc-${CLICKHOUSE_JDBC_VERSION}-all.jar" -O "/opt/spark/jars/clickhouse-jdbc-${CLICKHOUSE_JDBC_VERSION}-all.jar"; \
     test -s "/opt/spark/jars/clickhouse-jdbc-${CLICKHOUSE_JDBC_VERSION}-all.jar"
 
+# S3A settings for MinIO; credentials come from AWS_* environment variables.
+COPY spark-defaults.conf /opt/spark/conf/spark-defaults.conf
+
 USER spark

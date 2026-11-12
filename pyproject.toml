@@ -33,5 +33,10 @@ build-backend = "setuptools.build_meta"
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "spark/jobs"]
 testpaths = ["tests"]
+
+[tool.ruff.per-file-target-version]
+# Spark containers use Python 3.10; local development uses Python 3.11.
+"spark/jobs/*.py" = "py310"
+"spark/jobs/kinopoisk_cleaned/*.py" = "py310"
