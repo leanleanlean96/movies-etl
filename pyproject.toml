@@ -9,7 +9,6 @@ dependencies = [
     "apache-airflow-providers-docker==4.5.7",
     "apache-airflow-providers-http==6.0.4",
     "boto3>=1.35,<2",
-    "clickhouse-connect==1.4.1",
     "dbt-core==1.10.23",
     "dbt-postgres==1.10.2",
     "psycopg2-binary>=2.9,<3",
@@ -20,6 +19,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "clickhouse-connect==1.4.1",
     "ipykernel>=7.4.0",
     "pytest>=8,<10",
     "ruff>=0.14,<1",

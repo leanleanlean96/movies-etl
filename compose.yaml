@@ -216,7 +216,8 @@ services:
         soft: 262144
         hard: 262144
     environment:
-      CLICKHOUSE_DB: analytics
+      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+      CLICKHOUSE_DB: mart
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
@@ -225,6 +226,9 @@ services:
       - "127.0.0.1:9002:9000"
     volumes:
       - clickhouse-data:/var/lib/clickhouse
+      - ./infra/clickhouse/config.d/cloudberry.xml:/etc/clickhouse-server/config.d/cloudberry.xml:ro
+      - ./infra/clickhouse/users.d/refresh.xml:/etc/clickhouse-server/users.d/refresh.xml:ro
+      - ./infra/clickhouse/sql:/workspace/clickhouse:ro
     healthcheck:
       test: [CMD-SHELL, 'clickhouse-client --user "$${CLICKHOUSE_USER}" --password "$${CLICKHOUSE_PASSWORD}" --query "SELECT 1"']
       interval: 10s

@@ -967,7 +967,6 @@ dependencies = [
     { name = "apache-airflow-providers-docker" },
     { name = "apache-airflow-providers-http" },
     { name = "boto3" },
-    { name = "clickhouse-connect" },
     { name = "dbt-core" },
     { name = "dbt-postgres" },
     { name = "psycopg2-binary" },
@@ -978,6 +977,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "clickhouse-connect" },
     { name = "ipykernel" },
     { name = "pytest" },
     { name = "ruff" },
@@ -989,7 +989,6 @@ requires-dist = [
     { name = "apache-airflow-providers-docker", specifier = "==4.5.7" },
     { name = "apache-airflow-providers-http", specifier = "==6.0.4" },
     { name = "boto3", specifier = ">=1.35,<2" },
-    { name = "clickhouse-connect", specifier = "==1.4.1" },
     { name = "dbt-core", specifier = "==1.10.23" },
     { name = "dbt-postgres", specifier = "==1.10.2" },
     { name = "psycopg2-binary", specifier = ">=2.9,<3" },
@@ -1000,6 +999,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "clickhouse-connect", specifier = "==1.4.1" },
     { name = "ipykernel", specifier = ">=7.4.0" },
     { name = "pytest", specifier = ">=8,<10" },
     { name = "ruff", specifier = ">=0.14,<1" },

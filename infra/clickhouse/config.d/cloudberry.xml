@@ -1,0 +1,12 @@
+<clickhouse>
+    <named_collections>
+        <cloudberry_marts>
+            <host>cloudberry</host>
+            <port>7000</port>
+            <database>etl</database>
+            <schema>mart</schema>
+            <user>gpadmin</user>
+            <password from_env="CLOUDBERRY_PASSWORD" />
+        </cloudberry_marts>
+    </named_collections>
+</clickhouse>
