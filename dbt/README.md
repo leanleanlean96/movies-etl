@@ -1,12 +1,17 @@
 # dbt: core и mart
 
-Реализация согласованной модели из `docs/design.md`, `docs/implementation-plan.md`
-и `docs/dbt-data-model-guide.md`, с учётом прошлых обсуждений проекта.
-Только слои `stg → core → mart`, без постоянных служебных таблиц.
+[Основной README](../README.md) · [Запуск стенда](../infra/README.md) ·
+[Краткая карта модели](MODEL_REPORT.md)
+
+Преобразование `stg → core → mart` в Cloudberry: история фильмов и показателей,
+дневные снимки и аналитические витрины. Публикация выполняется скриптом
+`scripts/build.py` одной транзакцией, без постоянных служебных таблиц dbt.
 
 ## Запуск
 
-Один раз применить расширение входного контракта (два nullable-флага полноты
+Предварительно поднимите стенд и создайте таблицы через
+`infra/cloudberry/sql/staging.sql`, как описано в [инструкции запуска](../infra/README.md).
+Затем примените расширение входного контракта (два nullable-флага полноты
 массивов и отдельная таблица полных снимков топа):
 
 ```bash
@@ -32,16 +37,30 @@ docker compose run --rm --entrypoint python dbt scripts/build.py --full-refresh
 одного соединения. Постоянных технических таблиц нет. Логи — `dbt/target/logs`.
 
 Обычные `dbt compile`, `dbt test`, `dbt docs generate` доступны. Обычный
-`dbt build` также выполняет SQL, но коммитит модели отдельно: для публикации
-согласованного core используйте `scripts/build.py`, как предусмотрено гайдом.
+`dbt build` также выполняет SQL, но коммитит модели отдельно. Для согласованной
+публикации core и mart используйте `scripts/build.py`.
 Seed-файлы читает тот же атомарный запуск; отдельный `dbt seed` ему не нужен.
 
 Для отдельной базы передайте `-e CLOUDBERRY_DATABASE=имя` перед сервисом `dbt`.
 Источники используют базу профиля; схемы называются ровно `core` и `mart`.
 
+Дополнительные команды из корня репозитория:
+
+```bash
+docker compose run --rm dbt compile
+docker compose run --rm dbt test
+docker compose run --rm dbt docs generate
+```
+
+`test` проверяет уже опубликованные отношения; `docs generate` создаёт каталог
+в `dbt/target`, который не хранится в git. У сборочного скрипта также есть
+`--skip-compile`: он повторно использует `manifest.json` из `DBT_TARGET_PATH`.
+Применяйте его только для заранее скомпилированного проекта с теми же vars;
+в частности, новая `--snapshot-end-date` без компиляции не изменяет SQL.
+
 ## Airflow
 
-В DAG `kinopoisk_movies_daily` задача `build_dbt` запускается после успешной
+В DAG `kinopoisk_movies_daily` и `kinopoisk_movies_replay` задача `build_dbt` запускается после успешной
 `load_movies_stg`. `DockerOperator` запускает `python scripts/build.py` в образе
 `etl-pet-dbt:1.10.2`, сеть `etl-pet-net`. Перед первым запуском соберите образ
 (`docker compose build dbt`) и примените `infra/cloudberry/sql/dbt_inputs.sql`,
@@ -65,10 +84,9 @@ Seed-файлы читает тот же атомарный запуск; отд
 docker compose exec -T airflow-scheduler airflow tasks test kinopoisk_movies_daily build_dbt 2026-11-11
 ```
 
-Проверено 12 ноября 2026 года через `airflow tasks test`: контейнер запущен
-из Airflow, построены 25 моделей, все 104 data tests прошли, задача получила
-статус `success`. Перед успешным запуском добавлены встретившиеся во входных
-данных явные коды валют `SGD`, `LTL`, `BND` в `currency_mapping.csv`.
+Эта команда выполняет настоящую сборку на текущем staging. Результат конкретного
+запуска и число data tests смотрите в логе задачи; интеграционные проверки
+выполняются отдельно на одноразовой базе.
 
 ## Модели
 
@@ -148,6 +166,8 @@ docker compose exec -T airflow-scheduler airflow tasks test kinopoisk_movies_dai
 
 SQL-тесты: ключи, not_null, relationships, интервалы SCD2, конфликты входа,
 валютный маппинг, диапазоны оценок/голосов, полнота топа и сверки денежных итогов.
+Описания моделей и декларации проверок находятся в `models/core/_models.yml`
+и `models/mart/_models.yml`; входы — в `models/sources.yml`, маппинги — в `seeds`.
 
 Интеграционные проверки используют одноразовую Cloudberry-базу:
 
@@ -159,3 +179,5 @@ RUN_DBT_TESTS=1 uv run pytest tests/integration/test_dbt_models_cloudberry.py -q
 Проверяются повтор и full-refresh, поздние данные, конфликт времени, настоящий
 rollback после записи, удалённые строки и исчезнувшие группы, неизвестные/пустые
 массивы, NULL-переходы, SCD1 внешних ID, полные/неполные снимки и движения топа.
+
+Полная настройка окружения тестов — в [tests README](../tests/README.md).
