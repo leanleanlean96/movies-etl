@@ -1,0 +1,21 @@
+name: etl_pet
+version: '1.0.0'
+config-version: 2
+profile: etl_pet
+require-dbt-version: [">=1.10.23", "<1.11.0"]
+model-paths: [models]
+seed-paths: [seeds]
+test-paths: [tests]
+macro-paths: [macros]
+
+models:
+  etl_pet:
+    core:
+      +schema: core
+      +materialized: table
+    mart:
+      +schema: mart
+      +materialized: table
+seeds:
+  etl_pet:
+    +schema: core

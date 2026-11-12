@@ -1,0 +1,278 @@
+version: 2
+models:
+- name: dim_currency
+  description: 'SCD1: исходное обозначение валюты; 0 — неизвестная, символы без подтверждённого
+    кода.'
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - currency_sk
+  columns:
+  - name: currency_sk
+    data_tests:
+    - not_null
+    - unique
+- name: dim_market
+  description: Рынки сборов world/russia/usa; суммы рынков не складываются.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - market_sk
+  columns:
+  - name: market_sk
+    data_tests:
+    - not_null
+    - unique
+- name: dim_genre
+  description: SCD1 по последним метаданным. SK равен исходному ID при условии диапазона
+    integer.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - genre_sk
+  columns:
+  - name: genre_sk
+    data_tests:
+    - not_null
+    - unique
+- name: dim_country
+  description: SCD1 по последним метаданным. SK равен исходному ID при условии диапазона
+    integer.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - country_sk
+  columns:
+  - name: country_sk
+    data_tests:
+    - not_null
+    - unique
+- name: dim_movie
+  description: SCD2 описания и наборов связей. Внешние ID — SCD1. Детерминированный
+    60-bit SK; коллизии проверяются до commit.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_sk
+  columns:
+  - name: movie_sk
+    data_tests:
+    - not_null
+    - unique
+- name: bridge_movie_genre
+  description: Полный набор связей конкретной версии фильма.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_sk
+        - genre_sk
+  columns:
+  - name: movie_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_movie')
+          field: movie_sk
+  - name: genre_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_genre')
+          field: genre_sk
+- name: bridge_movie_country
+  description: Полный набор связей конкретной версии фильма.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_sk
+        - country_sk
+  columns:
+  - name: movie_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_movie')
+          field: movie_sk
+  - name: country_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_country')
+          field: country_sk
+- name: fact_budget_history
+  description: SCD2 бюджета; NULL сохраняется, поздние состояния пересчитывают интервалы.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+        - valid_from
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+  - name: valid_from
+    data_tests:
+    - not_null
+  - name: currency_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_currency')
+          field: currency_sk
+- name: fact_box_office_history
+  description: Независимая SCD2 история накопленных сборов каждого рынка.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+        - market_sk
+        - valid_from
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+  - name: market_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_market')
+          field: market_sk
+  - name: valid_from
+    data_tests:
+    - not_null
+  - name: currency_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_currency')
+          field: currency_sk
+- name: fact_movie_scores_history
+  description: SCD2 всех оценок и голосов, без позиций топа.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+        - valid_from
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+  - name: valid_from
+    data_tests:
+    - not_null
+- name: v_movie_current
+  description: Текущее состояние, valid_to IS NULL.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+    - unique
+- name: v_budget_current
+  description: Текущее состояние, valid_to IS NULL.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+    - unique
+- name: v_movie_scores_current
+  description: Текущее состояние, valid_to IS NULL.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+    - unique
+- name: v_box_office_current
+  description: Текущие сборы фильма на рынке.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - movie_id
+        - market_sk
+  columns:
+  - name: movie_id
+    data_tests:
+    - not_null
+  - name: market_sk
+    data_tests:
+    - not_null
+- name: dim_date
+  description: UTC-календарь с ISO-неделями и отдельным ISO-годом.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - date_sk
+  columns:
+  - name: date_sk
+    data_tests:
+    - not_null
+    - unique
+- name: fact_movie_catalog_daily
+  description: Накопленный каталог с даты первого получения. built_at — стабильная
+    граница снимка, не wall-clock запуска.
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - snapshot_date_sk
+        - movie_id
+  columns:
+  - name: snapshot_date_sk
+    data_tests:
+    - not_null
+    - relationships:
+        arguments:
+          to: ref('dim_date')
+          field: date_sk
+  - name: movie_id
+    data_tests:
+    - not_null
+- name: fact_top250_daily
+  description: 'Только полные независимые снимки: 250 уникальных фильмов/позиций.
+    Неполный новый батч не вытесняет полный.'
+  data_tests:
+  - unique_combination:
+      arguments:
+        columns:
+        - snapshot_date_sk
+        - position
+  columns:
+  - name: snapshot_date_sk
+    data_tests:
+    - not_null
+  - name: position
+    data_tests:
+    - not_null

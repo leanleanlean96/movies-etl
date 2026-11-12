@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: kinopoisk
+    schema: stg
+    description: transformed movies data from the spark job
+    tables:
+      - name: movies
+        description: One record per movie per batch
+      - name: movie_genres
+        description: One record per movie and genre per batch
+      - name: movie_countries
+        description: One record per movie and production country per batch
+      - name: top250
+        description: Independent complete top-250 snapshots; never populated from daily movie increments.

@@ -1,0 +1,14 @@
+<clickhouse>
+    <users>
+        <!-- Matches CLICKHOUSE_USER=etl in .env.example. -->
+        <etl>
+            <named_collection_control>1</named_collection_control>
+        </etl>
+    </users>
+    <profiles>
+        <default>
+            <!-- SYSTEM STOP VIEW alone is lost after a server restart. -->
+            <stop_refreshable_materialized_views_on_startup>1</stop_refreshable_materialized_views_on_startup>
+        </default>
+    </profiles>
+</clickhouse>
