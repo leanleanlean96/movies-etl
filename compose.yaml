@@ -29,6 +29,7 @@ x-airflow-common: &airflow-common
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/plugins:/opt/airflow/plugins
     - ./src:/opt/etl_pet/src:ro
+    - ./infra/clickhouse/sql:/opt/airflow/clickhouse:ro
   depends_on:
     airflow-db:
       condition: service_healthy
@@ -87,6 +88,7 @@ services:
       - ./airflow/logs:/opt/airflow/logs
       - ./airflow/plugins:/opt/airflow/plugins
       - ./src:/opt/etl_pet/src:ro
+      - ./infra/clickhouse/sql:/opt/airflow/clickhouse:ro
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       airflow-db:
