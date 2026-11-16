@@ -18,6 +18,10 @@ from psycopg2 import sql
 PROJECT = Path(__file__).resolve().parents[1]
 ROOT = PROJECT.parent
 
+# Support the existing importlib-based integration/benchmark entry points.
+sys.path.insert(0, str(PROJECT / "scripts"))
+import physical_policies as physical
+
 # None means a small replicated lookup; tuples are hash distribution keys.
 CORE_DISTRIBUTION = {
     "dim_movie": ("movie_id",),
@@ -122,14 +126,19 @@ def reconcile(cursor, node, query, full_refresh=False):
     columns = [d.name for d in cursor.description]
     cols = sql.SQL(", ").join(map(sql.Identifier, columns))
     cursor.execute(
-        sql.SQL("CREATE TABLE IF NOT EXISTS {} (LIKE _etl_incoming) {}").format(
-            target, distribution_clause(node["schema"], node["alias"])
+        sql.SQL("CREATE TABLE IF NOT EXISTS {} (LIKE _etl_incoming) {} {}").format(
+            target,
+            distribution_clause(node["schema"], node["alias"]),
+            physical.partition_clause(node),
         )
     )
     cursor.execute(sql.SQL("SELECT * FROM {} LIMIT 0").format(target))
     if [d.name for d in cursor.description] != columns:
         raise RuntimeError(f"Schema changed for {node['name']}; migrate explicitly")
     ensure_distribution(cursor, node["schema"], node["alias"])
+    if physical.is_catalog(node):
+        physical.validate_catalog(cursor)
+        physical.ensure_months(cursor, sql.Identifier("_etl_incoming"))
     if node["name"] == "fact_top250_daily":
         cursor.execute(
             sql.SQL("""SELECT DISTINCT old.snapshot_date_sk FROM {} old
@@ -164,12 +173,15 @@ def reconcile(cursor, node, query, full_refresh=False):
             )
             for k in keys
         )
-        cursor.execute(
-            sql.SQL("DELETE FROM {} t USING _etl_changed d WHERE {}").format(
-                target, match
+        if physical.is_catalog(node):
+            deleted = physical.delete_catalog_days(cursor, target, match)
+        else:
+            cursor.execute(
+                sql.SQL("DELETE FROM {} t USING _etl_changed d WHERE {}").format(
+                    target, match
+                )
             )
-        )
-        deleted = cursor.rowcount
+            deleted = cursor.rowcount
         cursor.execute(
             sql.SQL("""INSERT INTO {} SELECT t.* FROM _etl_incoming t
             WHERE EXISTS (SELECT 1 FROM _etl_changed d WHERE {})""").format(
@@ -177,6 +189,8 @@ def reconcile(cursor, node, query, full_refresh=False):
             )
         )
     inserted = cursor.rowcount
+    if inserted or deleted:
+        cursor.execute(sql.SQL("ANALYZE {}").format(target))
     if not full_refresh:
         cursor.execute("DROP TABLE _etl_changed")
     cursor.execute("DROP TABLE _etl_incoming")
@@ -211,6 +225,8 @@ def seed(cursor, name):
             [v or None for v in row],
         )
 
+    cursor.execute(sql.SQL("ANALYZE {}").format(table))
+
 
 def compiled_query(node):
     query = node.get("compiled_code")
@@ -236,9 +252,7 @@ def publish(connection, manifest, full_refresh=False, fail_after=None):
         cursor.execute("SET LOCAL lock_timeout = '30s'")
         cursor.execute("SET LOCAL statement_timeout = '15min'")
         # Serialize publishers and prevent staging replacement during the build.
-        cursor.execute(
-            "LOCK TABLE stg.movies, stg.movie_genres, stg.movie_countries, stg.top250 IN SHARE ROW EXCLUSIVE MODE"
-        )
+        cursor.execute(physical.STAGING_LOCK)
         cursor.execute("CREATE SCHEMA IF NOT EXISTS core")
         cursor.execute("CREATE SCHEMA IF NOT EXISTS mart")
         for name in ["currency_mapping", "market_mapping"]:
