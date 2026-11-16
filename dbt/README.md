@@ -1,8 +1,8 @@
 # dbt: core и mart
 
-Реализация согласованной модели из `docs/design.md`, `docs/implementation-plan.md`
-и `docs/dbt-data-model-guide.md`, с учётом прошлых обсуждений проекта.
-Только слои `stg → core → mart`, без постоянных служебных таблиц.
+Преобразование `stg → core → mart` в Cloudberry: история фильмов,
+дневные снимки и аналитические витрины. Каноническая публикация —
+`scripts/build.py`, одна транзакция для core и mart.
 
 ## Запуск
 
@@ -88,6 +88,30 @@ docker compose exec -T airflow-scheduler airflow tasks test kinopoisk_movies_dai
 Всего **25 моделей: 13 таблиц core, 4 текущих view, 8 таблиц mart**.
 Все 21 таблица настроены как `incremental`, стратегия `reconcile`.
 
+## Распределение core в Cloudberry
+
+Атомарный сборщик `scripts/build.py` явно задаёт политику при создании таблиц:
+
+| Таблицы | Политика |
+| --- | --- |
+| `dim_movie`, `fact_budget_history`, `fact_box_office_history`, `fact_movie_scores_history`, `fact_movie_catalog_daily`, `fact_top250_daily` | `DISTRIBUTED BY (movie_id)` |
+| `bridge_movie_genre`, `bridge_movie_country` | `DISTRIBUTED BY (movie_sk)` |
+| `dim_date`, `dim_genre`, `dim_country`, `dim_currency`, `dim_market` | `DISTRIBUTED REPLICATED` |
+| Seeds `currency_mapping`, `market_mapping` | `DISTRIBUTED REPLICATED` |
+
+Для существующих таблиц сборщик сверяет `gp_distribution_policy` и выполняет
+`ALTER TABLE ... SET DISTRIBUTED ...` только при несовпадении, затем `ANALYZE`.
+Миграция входит в общую транзакцию публикации: ошибка откатывает и данные,
+и распределение. OID таблиц и зависимые представления сохраняются.
+Первый запуск после изменения политики перераспределяет данные и требует
+эксклюзивных блокировок таблиц; следующие запуски не повторяют перераспределение.
+Обычный `dbt build` не применяет эти политики: используйте `scripts/build.py`.
+
+Мосты соединяются с `dim_movie` по `movie_sk`, поэтому их распределение
+не гарантирует локальный join с `dim_movie`, распределённой по `movie_id`.
+Физическое партиционирование здесь не вводится; `partition_keys` остаётся
+единицей инкрементальной замены строк. Политики `mart` не меняются.
+
 ## Инкремент
 
 Сравниваются рассчитанное и опубликованное состояния (`EXCEPT` в обе стороны).
@@ -142,7 +166,7 @@ docker compose exec -T airflow-scheduler airflow tasks test kinopoisk_movies_dai
   отсутствие baseline сохраняет NULL. Последняя неделя может быть неполной.
 - После успешной сборки Airflow запускает `publish_clickhouse`: обновление восьми refreshable MV в ClickHouse. Данные читаются напрямую через
   PostgreSQL engine; задача ждёт завершения, без блокировки DWH и переноса строк через Python.
-  [Запуск, повторы и границы атомарности](../infra/clickhouse/README.md).
+  [SQL обновления витрин](../infra/clickhouse/sql/refresh.sql).
 
 ## Проверки
 
@@ -159,3 +183,6 @@ RUN_DBT_TESTS=1 uv run pytest tests/integration/test_dbt_models_cloudberry.py -q
 Проверяются повтор и full-refresh, поздние данные, конфликт времени, настоящий
 rollback после записи, удалённые строки и исчезнувшие группы, неизвестные/пустые
 массивы, NULL-переходы, SCD1 внешних ID, полные/неполные снимки и движения топа.
+Также проверяются политики всех 15 таблиц core (включая seeds), миграция
+с прежнего распределения с сохранением строк и OID, её откат при ошибке
+и отсутствие повторного перераспределения при повторе/full-refresh.

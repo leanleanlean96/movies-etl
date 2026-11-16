@@ -18,6 +18,62 @@ from psycopg2 import sql
 PROJECT = Path(__file__).resolve().parents[1]
 ROOT = PROJECT.parent
 
+# None means a small replicated lookup; tuples are hash distribution keys.
+CORE_DISTRIBUTION = {
+    "dim_movie": ("movie_id",),
+    "fact_budget_history": ("movie_id",),
+    "fact_box_office_history": ("movie_id",),
+    "fact_movie_scores_history": ("movie_id",),
+    "fact_movie_catalog_daily": ("movie_id",),
+    "fact_top250_daily": ("movie_id",),
+    "bridge_movie_genre": ("movie_sk",),
+    "bridge_movie_country": ("movie_sk",),
+    "dim_date": None,
+    "dim_genre": None,
+    "dim_country": None,
+    "dim_currency": None,
+    "dim_market": None,
+    "currency_mapping": None,
+    "market_mapping": None,
+}
+
+
+def distribution_clause(schema, name):
+    if schema != "core":
+        return sql.SQL("")
+    keys = CORE_DISTRIBUTION[name]
+    if keys is None:
+        return sql.SQL("DISTRIBUTED REPLICATED")
+    return sql.SQL("DISTRIBUTED BY ({})").format(
+        sql.SQL(", ").join(map(sql.Identifier, keys))
+    )
+
+
+def ensure_distribution(cursor, schema, name):
+    """Migrate existing core tables once, preserving their OIDs and dependent views."""
+    if schema != "core":
+        return
+    table = sql.Identifier(schema, name)
+    keys = CORE_DISTRIBUTION[name]
+    cursor.execute(
+        """SELECT p.policytype, ARRAY(
+            SELECT a.attname::text
+            FROM unnest(p.distkey) WITH ORDINALITY AS k(attnum, ord)
+            JOIN pg_attribute a ON a.attrelid = p.localoid AND a.attnum = k.attnum
+            ORDER BY k.ord
+        ) FROM gp_distribution_policy p WHERE p.localoid = to_regclass(%s)""",
+        (table.as_string(cursor),),
+    )
+    expected = ("r", []) if keys is None else ("p", list(keys))
+    if cursor.fetchone() != expected:
+        cursor.execute(
+            sql.SQL("ALTER TABLE {} SET {}").format(
+                table, distribution_clause(schema, name)
+            )
+        )
+        cursor.execute(sql.SQL("ANALYZE {}").format(table))
+        print(f"{schema}.{name}: distribution updated", flush=True)
+
 
 def connect():
     return psycopg2.connect(
@@ -66,13 +122,14 @@ def reconcile(cursor, node, query, full_refresh=False):
     columns = [d.name for d in cursor.description]
     cols = sql.SQL(", ").join(map(sql.Identifier, columns))
     cursor.execute(
-        sql.SQL(
-            "CREATE TABLE IF NOT EXISTS {} AS SELECT * FROM _etl_incoming WHERE false"
-        ).format(target)
+        sql.SQL("CREATE TABLE IF NOT EXISTS {} (LIKE _etl_incoming) {}").format(
+            target, distribution_clause(node["schema"], node["alias"])
+        )
     )
     cursor.execute(sql.SQL("SELECT * FROM {} LIMIT 0").format(target))
     if [d.name for d in cursor.description] != columns:
         raise RuntimeError(f"Schema changed for {node['name']}; migrate explicitly")
+    ensure_distribution(cursor, node["schema"], node["alias"])
     if node["name"] == "fact_top250_daily":
         cursor.execute(
             sql.SQL("""SELECT DISTINCT old.snapshot_date_sk FROM {} old
@@ -140,8 +197,11 @@ def seed(cursor, name):
     )
     table = sql.Identifier("core", name)
     cursor.execute(
-        sql.SQL("CREATE TABLE IF NOT EXISTS {} ({})").format(table, definition)
+        sql.SQL("CREATE TABLE IF NOT EXISTS {} ({}) {}").format(
+            table, definition, distribution_clause("core", name)
+        )
     )
+    ensure_distribution(cursor, "core", name)
     cursor.execute(sql.SQL("DELETE FROM {}").format(table))
     for row in rows:
         cursor.execute(

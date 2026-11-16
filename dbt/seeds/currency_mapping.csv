@@ -45,3 +45,5 @@ currency_sk,source_currency_value,currency_code,currency_name
 43,SGD,SGD,Валюта по явному коду SGD
 44,LTL,LTL,Валюта по явному коду LTL
 45,BND,BND,Валюта по явному коду BND
+46,BGL,BGL,Валюта по явному коду BGL
+47,CZK,CZK,Валюта по явному коду CZK

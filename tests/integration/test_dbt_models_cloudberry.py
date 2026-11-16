@@ -135,6 +135,84 @@ def test_repeat_and_full_refresh_equivalence(state, capsys):
     ) == [(0,)]
 
 
+def core_policies(conn):
+    return rows(
+        conn,
+        """SELECT c.relname, c.oid, p.policytype, ARRAY(
+        SELECT a.attname::text
+        FROM unnest(p.distkey) WITH ORDINALITY AS k(attnum, ord)
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
+        ORDER BY k.ord
+    ) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN gp_distribution_policy p ON p.localoid = c.oid
+    WHERE n.nspname = 'core' ORDER BY c.relname""",
+    )
+
+
+def assert_core_policies(conn):
+    policies = core_policies(conn)
+    assert {name for name, *_ in policies} == set(build.CORE_DISTRIBUTION)
+    for name, _, policy, keys in policies:
+        expected = build.CORE_DISTRIBUTION[name]
+        assert (policy, keys) == (
+            ("r", []) if expected is None else ("p", list(expected))
+        )
+
+
+def test_core_distribution_creation_repeat_and_full_refresh(state, capsys):
+    conn, manifest = state
+    assert_core_policies(conn)
+    before = core_policies(conn)
+    capsys.readouterr()
+    build.publish(conn, manifest)
+    build.publish(conn, manifest, full_refresh=True)
+    assert "distribution updated" not in capsys.readouterr().out
+    assert core_policies(conn) == before
+
+
+def test_core_distribution_migration_is_atomic_and_preserves_data(state, capsys):
+    conn, manifest = state
+    before = snapshot(conn, manifest)
+    lookups = {
+        name: rows(
+            conn,
+            sql.SQL("SELECT * FROM core.{} ORDER BY 1").format(sql.Identifier(name)),
+        )
+        for name in ("currency_mapping", "market_mapping")
+    }
+    with conn, conn.cursor() as c:
+        for name in build.CORE_DISTRIBUTION:
+            c.execute(
+                sql.SQL("ALTER TABLE core.{} SET DISTRIBUTED RANDOMLY").format(
+                    sql.Identifier(name)
+                )
+            )
+    old_policies = core_policies(conn)
+    with pytest.raises(RuntimeError, match="Injected"):
+        build.publish(conn, manifest, fail_after="fact_budget_history")
+    assert core_policies(conn) == old_policies
+    assert snapshot(conn, manifest) == before
+    build.publish(conn, manifest)
+    assert_core_policies(conn)
+    assert [(r[0], r[1]) for r in core_policies(conn)] == [
+        (r[0], r[1]) for r in old_policies
+    ]
+    assert snapshot(conn, manifest) == before
+    for name, values in lookups.items():
+        assert (
+            rows(
+                conn,
+                sql.SQL("SELECT * FROM core.{} ORDER BY 1").format(
+                    sql.Identifier(name)
+                ),
+            )
+            == values
+        )
+    capsys.readouterr()
+    build.publish(conn, manifest)
+    assert "distribution updated" not in capsys.readouterr().out
+
+
 def test_late_data_reorders_history_without_rolling_back_current(state):
     conn, manifest = state
     old_sk = rows(conn, "SELECT movie_sk FROM core.dim_movie ORDER BY movie_sk")
@@ -165,7 +243,10 @@ def test_conflicting_timestamp_rejects_entire_publication(state):
     before = snapshot(conn, manifest)
     execute(
         conn,
-        "INSERT INTO stg.movies SELECT id,'conflict',source_page,source_updated_at,created_at,ingested_at,type,'Conflicting',alternative_name,year,movie_length,age_rating,rating_mpaa,status,is_series,tickets_on_sale,imdb_id,tmdb_id,kp_hd_id,rating_kp,rating_imdb,rating_tmdb,rating_film_critics,rating_russian_film_critics,votes_kp,votes_imdb,votes_tmdb,votes_film_critics,votes_russian_film_critics,top10,top250,budget_value,budget_currency,fees_world_value,fees_world_currency,fees_russia_value,fees_russia_currency,fees_usa_value,fees_usa_currency,premiere_world,premiere_russia,premiere_digital,premiere_dvd,premiere_bluray,genres_complete,countries_complete FROM stg.movies WHERE id=1 AND batch_id='a'",
+        """INSERT INTO stg.movies
+        (id, batch_id, source_updated_at, ingested_at, name)
+        SELECT id, 'conflict', source_updated_at, ingested_at, 'Conflicting'
+        FROM stg.movies WHERE id=1 AND batch_id='a'""",
     )
     with pytest.raises(RuntimeError, match="input_conflicts"):
         build.publish(conn, manifest)
