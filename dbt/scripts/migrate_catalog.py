@@ -127,11 +127,18 @@ def preflight(cursor):
     dependencies = cursor.fetchall()
     if dependencies:
         raise RuntimeError(f"Unknown catalog dependencies: {dependencies!r}")
+    # Dropping the parent also removes every leaf and its row/array types.
     cursor.execute(
-        """SELECT pg_describe_object(d.classid,d.objid,d.objsubid)
+        """WITH relations AS (
+            SELECT %s::oid AS oid UNION ALL
+            SELECT inhrelid FROM pg_inherits WHERE inhparent=%s
+        )
+        SELECT pg_describe_object(d.classid,d.objid,d.objsubid)
         FROM pg_depend d JOIN pg_type t ON t.oid=d.refobjid
         WHERE d.refclassid='pg_type'::regclass
-          AND (t.typrelid=%s OR t.typelem=(SELECT reltype FROM pg_class WHERE oid=%s))
+          AND (t.typrelid IN (SELECT oid FROM relations)
+            OR t.typelem IN (SELECT reltype FROM pg_class
+                            WHERE oid IN (SELECT oid FROM relations)))
           AND NOT (d.classid='pg_type'::regclass AND d.deptype='i'
               AND d.objid=t.typarray)""",
         (oid, oid),
@@ -165,7 +172,8 @@ def preflight(cursor):
     if any(g[0] != owner for g in grants):
         raise RuntimeError("Non-owner ACL grantors require manual migration")
     if kind == "p":
-        # Leaf-local customizations cannot be represented on a plain replacement.
+        # Apply the parent storage guards to leaves too: local security/identity
+        # flags and other customizations cannot survive a plain replacement.
         cursor.execute(
             """SELECT c.relname FROM pg_inherits i JOIN pg_class c ON c.oid=i.inhrelid
             JOIN pg_class p ON p.oid=i.inhparent
@@ -175,6 +183,10 @@ def preflight(cursor):
                 OR EXISTS ((SELECT * FROM aclexplode(coalesce(p.relacl,acldefault('r',p.relowner))))
                     EXCEPT (SELECT * FROM aclexplode(coalesce(c.relacl,acldefault('r',c.relowner)))))
                 OR c.reloptions IS NOT NULL OR c.reltablespace<>0
+                OR c.relpersistence<>'p' OR c.relrowsecurity OR c.relforcerowsecurity
+                OR c.relreplident<>'d'
+                OR EXISTS (SELECT 1 FROM pg_seclabel s
+                    WHERE s.classoid='pg_class'::regclass AND s.objoid=c.oid)
                 OR c.relam<>(SELECT oid FROM pg_am WHERE amname='heap')
                 OR obj_description(c.oid,'pg_class') IS NOT NULL
                 OR EXISTS (SELECT 1 FROM pg_depend d WHERE d.refclassid='pg_class'::regclass
@@ -184,11 +196,13 @@ def preflight(cursor):
                             AND d.objid=c.reltoastrelid))
                 OR EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid=c.oid
                     AND a.attnum>0 AND (a.attacl IS NOT NULL OR a.atthasdef
+                        OR a.attisdropped OR a.attidentity<>'' OR a.attgenerated<>''
                         OR col_description(a.attrelid,a.attnum) IS NOT NULL
                         OR EXISTS (SELECT 1 FROM pg_attribute pa WHERE pa.attrelid=p.oid
                             AND pa.attnum=a.attnum AND (a.attstorage<>pa.attstorage
                                 OR a.attstattarget<>pa.attstattarget
-                                OR a.attnotnull<>pa.attnotnull))
+                                OR a.attnotnull<>pa.attnotnull
+                                OR a.attcollation<>pa.attcollation))
                         OR a.attoptions IS NOT NULL OR a.attfdwoptions IS NOT NULL
                         OR a.attcompression<>'')))""",
             (oid,),
