@@ -112,6 +112,21 @@ def execute(conn, query):
         c.execute(query)
 
 
+def test_empty_catalog_start(warehouse):
+    conn, manifest = warehouse
+    execute(
+        conn, "TRUNCATE stg.movies, stg.movie_genres, stg.movie_countries, stg.top250"
+    )
+    build.publish(conn, manifest)
+    assert rows(conn, "SELECT count(*) FROM core.fact_movie_catalog_daily") == [(0,)]
+    tree = catalog_tree(conn)
+    assert len(tree) == 1 and not tree[0][1]
+    build.publish(conn, manifest)
+    assert catalog_tree(conn) == tree
+    build.publish(conn, manifest, full_refresh=True)
+    assert rows(conn, "SELECT count(*) FROM core.fact_movie_catalog_daily") == [(0,)]
+
+
 def test_repeat_and_full_refresh_equivalence(state, capsys):
     conn, manifest = state
     before = snapshot(conn, manifest)
@@ -145,13 +160,23 @@ def core_policies(conn):
         ORDER BY k.ord
     ) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
     JOIN gp_distribution_policy p ON p.localoid = c.oid
-    WHERE n.nspname = 'core' ORDER BY c.relname""",
+    WHERE n.nspname = 'core' AND NOT c.relispartition ORDER BY c.relname""",
     )
 
 
 def assert_core_policies(conn):
     policies = core_policies(conn)
     assert {name for name, *_ in policies} == set(build.CORE_DISTRIBUTION)
+    leaves = rows(
+        conn,
+        """SELECT p.policytype, ARRAY(
+        SELECT a.attname::text FROM unnest(p.distkey) WITH ORDINALITY k(attnum, ord)
+        JOIN pg_attribute a ON a.attrelid=p.localoid AND a.attnum=k.attnum ORDER BY k.ord)
+        FROM pg_partition_tree('core.fact_movie_catalog_daily') t
+        JOIN gp_distribution_policy p ON p.localoid=t.relid WHERE t.isleaf""",
+    )
+    assert leaves
+    assert all(item == ("p", ["movie_id"]) for item in leaves)
     for name, _, policy, keys in policies:
         expected = build.CORE_DISTRIBUTION[name]
         assert (policy, keys) == (
@@ -391,3 +416,136 @@ def test_standard_dbt_incremental_strategy_on_postgres_adapter(state, tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert snapshot(conn, manifest) == before
+
+
+def catalog_tree(conn):
+    return rows(
+        conn,
+        """SELECT t.relid::oid, t.isleaf,
+        pg_get_expr(c.relpartbound,c.oid) FROM
+        pg_partition_tree('core.fact_movie_catalog_daily') t
+        JOIN pg_class c ON c.oid=t.relid ORDER BY 1""",
+    )
+
+
+def test_catalog_months_backfill_disappeared_days_and_pruning(state):
+    conn, manifest = state
+    node = next(
+        n
+        for n in build.order_models(manifest)
+        if n["name"] == "fact_movie_catalog_daily"
+    )
+
+    def reconcile(keys):
+        values = ",".join(f"({key},1,now(),'fixture')" for key in keys)
+        query = (
+            f"SELECT * FROM (VALUES {values}) AS x(snapshot_date_sk,movie_id,built_at,batch_id)"
+            if keys
+            else "SELECT NULL::int, NULL::bigint, NULL::timestamptz, NULL::text WHERE false"
+        )
+        # Explicit types match the published table; freeze built_at for replay.
+        query = query.replace("now()", "'2024-01-01'::timestamptz")
+        query = query.replace(",1,", ",1::bigint,")
+        with conn, conn.cursor() as c:
+            c.execute("SET LOCAL statement_timeout='15min'")
+            build.reconcile(c, node, query)
+
+    reconcile([20231231, 20240101, 20240229, 20240301, 20260101])
+    for invalid in (20240230, 20241301):
+        with pytest.raises(RuntimeError, match="Invalid catalog calendar key"):
+            reconcile([invalid])
+    bounds = {r[2] for r in catalog_tree(conn) if r[1]}
+    assert {
+        "FOR VALUES FROM (20231201) TO (20240101)",
+        "FOR VALUES FROM (20240201) TO (20240301)",
+        "FOR VALUES FROM (20240301) TO (20240401)",
+    } <= bounds
+    before = catalog_tree(conn)
+    reconcile([20231231, 20240101, 20240229, 20240301, 20260101])
+    assert catalog_tree(conn) == before
+    reconcile([20240101, 20240301])
+    assert rows(
+        conn, "SELECT snapshot_date_sk FROM core.fact_movie_catalog_daily ORDER BY 1"
+    ) == [(20240101,), (20240301,)]
+    assert catalog_tree(conn) == before
+    with conn, conn.cursor() as c:
+        c.execute("CREATE TEMP TABLE _etl_changed(snapshot_date_sk int) ON COMMIT DROP")
+        c.execute("INSERT INTO _etl_changed VALUES (20240101)")
+        c.execute("""EXPLAIN DELETE FROM core.fact_movie_catalog_daily t USING _etl_changed d
+            WHERE t.snapshot_date_sk >= 20240101 AND t.snapshot_date_sk < 20240201
+            AND t.snapshot_date_sk IS NOT DISTINCT FROM d.snapshot_date_sk""")
+        plan = "\n".join(r[0] for r in c.fetchall())
+        c.execute(
+            "SELECT c.relname FROM pg_partition_tree('core.fact_movie_catalog_daily') t JOIN pg_class c ON c.oid=t.relid WHERE t.isleaf AND pg_get_expr(c.relpartbound,c.oid)='FOR VALUES FROM (20240101) TO (20240201)'"
+        )
+        selected = c.fetchone()[0]
+        assert selected in plan
+        c.execute(
+            "SELECT c.relname FROM pg_partition_tree('core.fact_movie_catalog_daily') t JOIN pg_class c ON c.oid=t.relid WHERE t.isleaf AND pg_get_expr(c.relpartbound,c.oid)='FOR VALUES FROM (20240301) TO (20240401)'"
+        )
+        assert c.fetchone()[0] not in plan
+
+
+def test_catalog_migration_round_trip_and_failures(state):
+    from migrate_catalog import migrate
+
+    conn, manifest = state
+    before = snapshot(conn, manifest)
+    policies = core_policies(conn)
+    old_tree = catalog_tree(conn)
+    assert not migrate(conn, apply=False, reverse=True)["apply"]
+    for stage in ("copy", "swap"):
+        with pytest.raises(RuntimeError, match="Injected"):
+            migrate(conn, apply=True, reverse=True, fail_after=stage)
+        assert snapshot(conn, manifest) == before
+        assert catalog_tree(conn) == old_tree
+    migrate(conn, apply=True, reverse=True)
+    assert snapshot(conn, manifest) == before
+    after_reverse = core_policies(conn)
+    assert {r[0]: r[1] for r in policies if r[0] != "fact_movie_catalog_daily"} == {
+        r[0]: r[1] for r in after_reverse if r[0] != "fact_movie_catalog_daily"
+    }
+    assert {r[0]: r[1] for r in policies}["fact_movie_catalog_daily"] != {
+        r[0]: r[1] for r in after_reverse
+    }["fact_movie_catalog_daily"]
+    execute(
+        conn,
+        "CREATE VIEW core.external_catalog_test AS SELECT * FROM core.fact_movie_catalog_daily",
+    )
+    with pytest.raises(RuntimeError):
+        migrate(conn, apply=True)
+    execute(conn, "DROP VIEW core.external_catalog_test")
+    migrate(conn, apply=True)
+    assert snapshot(conn, manifest) == before
+    assert_core_policies(conn)
+
+
+def test_catalog_new_month_build_rollback(state):
+    conn, manifest = state
+    before = snapshot(conn, manifest)
+    tree = catalog_tree(conn)
+    execute(
+        conn,
+        """INSERT INTO stg.movies
+        (id,batch_id,source_updated_at,ingested_at,name)
+        VALUES (99,'backfill','2026-10-31 10:00Z','2026-10-31 12:00Z','Backfill')""",
+    )
+    with pytest.raises(RuntimeError, match="Injected"):
+        build.publish(conn, manifest, fail_after="fact_movie_catalog_daily")
+    assert snapshot(conn, manifest) == before
+    assert catalog_tree(conn) == tree
+    build.publish(conn, manifest)
+    assert rows(
+        conn,
+        "SELECT count(*) FROM core.fact_movie_catalog_daily WHERE snapshot_date_sk=20261031 AND movie_id=99",
+    ) == [(1,)]
+    assert any(
+        r[2] == "FOR VALUES FROM (20261001) TO (20261101)" for r in catalog_tree(conn)
+    )
+    result = snapshot(conn, manifest)
+    build.publish(conn, manifest, full_refresh=True)
+    assert snapshot(conn, manifest) == result
+    assert rows(
+        conn,
+        """SELECT count(*) FROM pg_index i JOIN pg_partition_tree('core.fact_movie_catalog_daily') t ON t.relid=i.indrelid""",
+    ) == [(0,)]
