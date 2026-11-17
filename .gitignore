@@ -15,5 +15,6 @@ dbt/logs/
 !.python-version
 docs/
 CHANGELOG.md
-README.md
-!dbt/README.md
+
+# Local copies of documentation excluded from the repository
+/.local-docs/
