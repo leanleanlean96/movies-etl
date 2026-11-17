@@ -549,3 +549,147 @@ def test_catalog_new_month_build_rollback(state):
         conn,
         """SELECT count(*) FROM pg_index i JOIN pg_partition_tree('core.fact_movie_catalog_daily') t ON t.relid=i.indrelid""",
     ) == [(0,)]
+
+
+def test_catalog_migration_refuses_leaf_metadata_and_type_consumers(state):
+    from migrate_catalog import migrate
+
+    conn, _ = state
+    with conn, conn.cursor() as cursor:
+        cursor.execute(
+            "CREATE TEMP TABLE migration_months(snapshot_date_sk int) ON COMMIT DROP"
+        )
+        cursor.execute("INSERT INTO migration_months VALUES (20240229), (20261001)")
+        build.physical.ensure_months(cursor, sql.Identifier("migration_months"))
+    leaf = rows(
+        conn,
+        """SELECT n.nspname,c.relname FROM
+        pg_partition_tree('core.fact_movie_catalog_daily') t
+        JOIN pg_class c ON c.oid=t.relid JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE t.isleaf ORDER BY c.oid DESC LIMIT 1""",
+    )[0]
+    assert len([part for part in catalog_tree(conn) if part[1]]) >= 2
+
+    def physical_state():
+        return {
+            "tree": catalog_tree(conn),
+            "rows": rows(
+                conn, "SELECT * FROM core.fact_movie_catalog_daily ORDER BY 1,2"
+            ),
+            "relations": rows(
+                conn,
+                """SELECT c.oid,c.relname,c.relkind,c.relowner,
+                c.relacl::text,c.reloptions,c.reltablespace,c.relpersistence,
+                c.relrowsecurity,c.relforcerowsecurity,c.relreplident,c.relispartition,
+                pg_get_expr(c.relpartbound,c.oid) FROM pg_class c
+                WHERE c.relnamespace='core'::regnamespace ORDER BY c.oid""",
+            ),
+            "columns": rows(
+                conn,
+                """SELECT a.attrelid,a.attnum,a.attname,a.atttypid,
+                a.attnotnull,a.attstorage,a.attstattarget,a.attacl::text,a.attidentity,
+                a.attgenerated,a.attcompression FROM pg_attribute a JOIN pg_class c
+                ON c.oid=a.attrelid WHERE c.relnamespace='core'::regnamespace
+                AND a.attnum>0 ORDER BY 1,2""",
+            ),
+            "types": rows(
+                conn,
+                """SELECT oid,typname,typrelid,typelem,typarray
+                FROM pg_type WHERE typnamespace='core'::regnamespace ORDER BY oid""",
+            ),
+        }
+
+    writes = []
+
+    class AuditCursor(psycopg2.extensions.cursor):
+        def execute(self, query, vars=None):
+            statement = (
+                query.as_string(self)
+                if isinstance(query, sql.Composable)
+                else str(query)
+            )
+            if statement.lstrip().split(None, 1)[0].upper() in {
+                "CREATE",
+                "ALTER",
+                "DROP",
+                "INSERT",
+                "UPDATE",
+                "DELETE",
+                "GRANT",
+                "REVOKE",
+                "COMMENT",
+                "ANALYZE",
+            }:
+                writes.append(statement)
+            return super().execute(query, vars)
+
+    settings = {
+        "host": os.getenv("CLOUDBERRY_HOST", "127.0.0.1"),
+        "port": os.getenv("CLOUDBERRY_PORT", "7000"),
+        "user": os.getenv("CLOUDBERRY_USER", "gpadmin"),
+        "password": os.environ["CLOUDBERRY_PASSWORD"],
+        "dbname": conn.info.dbname,
+        "cursor_factory": AuditCursor,
+    }
+    cases = [
+        (
+            "ENABLE ROW LEVEL SECURITY",
+            "DISABLE ROW LEVEL SECURITY",
+            "Unsupported leaf metadata/dependencies",
+        ),
+        (
+            "FORCE ROW LEVEL SECURITY",
+            "NO FORCE ROW LEVEL SECURITY",
+            "Unsupported leaf metadata/dependencies",
+        ),
+        (
+            "REPLICA IDENTITY FULL",
+            "REPLICA IDENTITY DEFAULT",
+            "Unsupported leaf metadata/dependencies",
+        ),
+    ]
+    with closing(psycopg2.connect(**settings)) as audit:
+
+        def assert_refused(message):
+            before = physical_state()
+            for apply in (False, True):
+                writes.clear()
+                with pytest.raises(RuntimeError, match=message):
+                    migrate(audit, reverse=True, apply=apply)
+                assert writes == []  # Includes attempts rolled back by migrate.
+                assert physical_state() == before
+
+        for setup, cleanup, message in cases:
+            execute(
+                conn,
+                sql.SQL("ALTER TABLE {} {}").format(
+                    sql.Identifier(*leaf), sql.SQL(setup)
+                ),
+            )
+            try:
+                assert_refused(message)
+            finally:
+                execute(
+                    conn,
+                    sql.SQL("ALTER TABLE {} {}").format(
+                        sql.Identifier(*leaf), sql.SQL(cleanup)
+                    ),
+                )
+        for target in (leaf, ("core", "fact_movie_catalog_daily")):
+            for array in (False, True):
+                execute(
+                    conn,
+                    sql.SQL(
+                        "CREATE VIEW core.test_type_dependency AS SELECT NULL::{}{} AS x"
+                    ).format(sql.Identifier(*target), sql.SQL("[]" if array else "")),
+                )
+                try:
+                    assert_refused("Unknown catalog type dependencies")
+                finally:
+                    execute(conn, "DROP VIEW core.test_type_dependency")
+        original_rows = physical_state()["rows"]
+        assert migrate(audit, apply=True)["status"] == "already configured"
+        assert not migrate(audit, reverse=True)["changed"]
+        migrate(audit, reverse=True, apply=True)
+        migrate(audit, apply=True)
+        assert physical_state()["rows"] == original_rows
