@@ -1,6 +1,7 @@
 """Physical storage policies, independent of dbt's logical replacement keys.
 
-T1 confirmed no additional indexes. An empty index policy is intentional.
+Workload measurements did not justify additional indexes.
+An empty index policy is intentional.
 """
 
 import re

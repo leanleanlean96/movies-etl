@@ -18,6 +18,10 @@ CHANGELOG.md
 README.md
 !dbt/README.md
 
+# Local development workflow, measurements and reports
 /.de/
+/CODE_PRACTICES_REVIEW.md
+/dbt/MODEL_REPORT.md
+**/.user.yml
 
 /.local-docs/
