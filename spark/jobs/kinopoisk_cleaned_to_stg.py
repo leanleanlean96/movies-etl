@@ -1,13 +1,13 @@
 import json
 
 from kinopoisk_staging import run
-from kinopoisk_stg_support import cloudberry_settings, parse_args
+from kinopoisk_stg_support import greenplum_settings, parse_args
 from pyspark.sql import SparkSession
 
 
 def main():
     args = parse_args()
-    settings = cloudberry_settings()
+    settings = greenplum_settings()
     spark = (
         SparkSession.builder.appName("kinopoisk_cleaned_to_stg")
         .config("spark.sql.session.timeZone", "UTC")
