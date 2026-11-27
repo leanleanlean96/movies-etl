@@ -90,6 +90,14 @@ RUN_PUBLISH_TESTS=1 uv run pytest -q tests/integration/test_publish_clickhouse.p
 изменения, удаления, пустые снимки и восстановление после ошибки refresh.
 Используются отдельные временные БД и named collection ClickHouse.
 
+Чтобы проверить весь переход на Greenplum одним запуском, задайте переменные
+подключения к обеим базам и `PYSPARK_SUBMIT_ARGS` с JDBC JAR, как показано выше.
+
+```bash
+RUN_GREENPLUM_TESTS=1 RUN_DBT_TESTS=1 RUN_PUBLISH_TESTS=1 \
+  uv run pytest -q tests/integration
+```
+
 ## SQL-проверки опубликованных моделей
 
 ```bash
