@@ -6,7 +6,7 @@ from kinopoisk_stg_jdbc import JdbcConnection, load_batch, target_schemas
 from kinopoisk_stg_support import (
     LOAD_CONTRACT,
     _s3_path,
-    cloudberry_settings,
+    greenplum_settings,
     validate_cleaned_manifest,
     validate_tables,
 )
@@ -20,7 +20,7 @@ def s3a_uri(uri):
 
 
 def run(spark, manifest_uri, settings=None):
-    settings = settings or cloudberry_settings()
+    settings = settings or greenplum_settings()
     manifest = json.loads(read_bytes(spark, s3a_uri(manifest_uri)))
     validate_cleaned_manifest(manifest)
     tables = {}

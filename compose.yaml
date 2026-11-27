@@ -10,7 +10,7 @@ x-airflow-common: &airflow-common
     PYTHONPATH: /opt/etl_pet/src
     MINIO_ROOT_USER: ${MINIO_ROOT_USER}
     MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-    CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+    GREENPLUM_PASSWORD: ${GREENPLUM_PASSWORD}
     CLICKHOUSE_USER: ${CLICKHOUSE_USER}
     CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
     KINOPOISK_API_KEY: ${KINOPOISK_API_KEY:-}
@@ -36,6 +36,15 @@ x-airflow-common: &airflow-common
   depends_on:
     airflow-db:
       condition: service_healthy
+
+x-superset-common: &superset-common
+  build:
+    context: ./infra/superset
+  image: etl-pet-superset:6.1.0
+  profiles: [bi]
+  environment: &superset-env
+    SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-}
+    SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:-}
 
 services:
   airflow-db:
@@ -178,21 +187,19 @@ services:
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
       AWS_REGION: us-east-1
-      CLOUDBERRY_HOST: cloudberry
-      CLOUDBERRY_PORT: "7000"
-      CLOUDBERRY_DATABASE: etl
-      CLOUDBERRY_USER: gpadmin
-      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+      GREENPLUM_HOST: greenplum
+      GREENPLUM_PORT: "5432"
+      GREENPLUM_DATABASE: etl
+      GREENPLUM_USER: gpadmin
+      GREENPLUM_PASSWORD: ${GREENPLUM_PASSWORD}
     volumes:
       - ./spark/jobs:/workspace/spark/jobs:ro
     working_dir: /workspace/spark/jobs
     entrypoint: [/opt/spark/bin/spark-submit]
 
-  cloudberry:
-    build:
-      context: ./infra/cloudberry
-    image: etl-pet-cloudberry:2.1.0
-    hostname: cloudberry
+  greenplum:
+    image: woblerr/greenplum:7.1.0
+    hostname: greenplum
     shm_size: 2gb
     # gpstop has to finish before Docker sends SIGKILL (default is 10s).
     stop_grace_period: 2m
@@ -201,13 +208,22 @@ services:
         soft: 65536
         hard: 65536
     environment:
-      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+      GREENPLUM_PASSWORD: ${GREENPLUM_PASSWORD}
+      GREENPLUM_DATABASE_NAME: etl
     ports:
-      - "127.0.0.1:7000:7000"
+      - "127.0.0.1:7000:5432"
     volumes:
-      - cloudberry-data:/var/lib/cloudberry
+      - greenplum-data:/data
     healthcheck:
-      test: [CMD-SHELL, "su - gpadmin -c 'source /usr/local/cloudberry-db/cloudberry-env.sh && pg_isready -h 127.0.0.1 -p 7000 -U gpadmin'" ]
+      test:
+        - CMD
+        - bash
+        - -ec
+        - >-
+          source /usr/local/greenplum-db/greenplum_path.sh &&
+          PGPASSWORD="$${GREENPLUM_PASSWORD}" psql -X -h 127.0.0.1 -U gpadmin -d etl
+          -Atqc "SELECT count(*) FROM gp_dist_random('gp_id')"
+          | grep -Eq '^[1-9][0-9]*$'
       interval: 15s
       timeout: 10s
       retries: 30
@@ -221,7 +237,7 @@ services:
         soft: 262144
         hard: 262144
     environment:
-      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+      GREENPLUM_PASSWORD: ${GREENPLUM_PASSWORD}
       CLICKHOUSE_DB: mart
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
@@ -231,7 +247,7 @@ services:
       - "127.0.0.1:9002:9000"
     volumes:
       - clickhouse-data:/var/lib/clickhouse
-      - ./infra/clickhouse/config.d/cloudberry.xml:/etc/clickhouse-server/config.d/cloudberry.xml:ro
+      - ./infra/clickhouse/config.d/greenplum.xml:/etc/clickhouse-server/config.d/greenplum.xml:ro
       - ./infra/clickhouse/users.d/refresh.xml:/etc/clickhouse-server/users.d/refresh.xml:ro
       - ./infra/clickhouse/sql:/workspace/clickhouse:ro
     healthcheck:
@@ -241,6 +257,43 @@ services:
       retries: 20
     restart: unless-stopped
 
+  superset-db:
+    image: postgres:16-alpine
+    profiles: [bi]
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: ${SUPERSET_DB_PASSWORD:-}
+      POSTGRES_DB: superset
+    volumes:
+      - superset-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD, pg_isready, -h, "127.0.0.1", -U, superset, -d, superset]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  superset-init:
+    <<: *superset-common
+    command: [python, /app/etl-pet/init.py]
+    environment:
+      <<: *superset-env
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-}
+    depends_on:
+      superset-db:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  superset:
+    <<: *superset-common
+    ports:
+      - "127.0.0.1:8088:8088"
+    depends_on:
+      superset-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   dbt:
     build:
       context: ./infra/dbt
@@ -248,10 +301,10 @@ services:
     profiles: [tools]
     environment:
       DBT_PROFILES_DIR: /workspace/profiles
-      CLOUDBERRY_HOST: cloudberry
-      CLOUDBERRY_PORT: "7000"
-      CLOUDBERRY_USER: gpadmin
-      CLOUDBERRY_PASSWORD: ${CLOUDBERRY_PASSWORD}
+      GREENPLUM_HOST: greenplum
+      GREENPLUM_PORT: "5432"
+      GREENPLUM_USER: gpadmin
+      GREENPLUM_PASSWORD: ${GREENPLUM_PASSWORD}
     volumes:
       - ./dbt:/workspace/dbt
       - ./infra/dbt/profiles:/workspace/profiles:ro
@@ -265,5 +318,6 @@ networks:
 volumes:
   airflow-db-data:
   minio-data:
-  cloudberry-data:
+  greenplum-data:
   clickhouse-data:
+  superset-db-data:

@@ -2,21 +2,21 @@
 
 [Основной README](../README.md) · [Запуск стенда](../infra/README.md)
 
-Преобразование `stg → core → mart` в Cloudberry: история фильмов и показателей,
+Преобразование `stg → core → mart` в Greenplum: история фильмов и показателей,
 дневные снимки и аналитические витрины. Публикация выполняется скриптом
 `scripts/build.py` одной транзакцией, без постоянных служебных таблиц dbt.
 
 ## Запуск
 
 Предварительно поднимите стенд и создайте таблицы через
-`infra/cloudberry/sql/staging.sql`, как описано в [инструкции запуска](../infra/README.md).
+`infra/greenplum/sql/staging.sql`, как описано в [инструкции запуска](../infra/README.md).
 Затем примените расширение входного контракта (два nullable-флага полноты
 массивов и отдельная таблица полных снимков топа):
 
 ```bash
-docker compose exec -T --user gpadmin cloudberry bash -lc \
-  'source /usr/local/cloudberry-db/cloudberry-env.sh && psql -p 7000 -d etl -v ON_ERROR_STOP=1' \
-  < infra/cloudberry/sql/dbt_inputs.sql
+docker compose exec -T --user gpadmin greenplum bash -lc \
+  'source /usr/local/greenplum-db/greenplum_path.sh && psql -X -d etl -v ON_ERROR_STOP=1' \
+  < infra/greenplum/sql/dbt_inputs.sql
 ```
 
 Рабочая сборка:
@@ -40,7 +40,7 @@ docker compose run --rm --entrypoint python dbt scripts/build.py --full-refresh
 публикации core и mart используйте `scripts/build.py`.
 Seed-файлы читает тот же атомарный запуск; отдельный `dbt seed` ему не нужен.
 
-Для отдельной базы передайте `-e CLOUDBERRY_DATABASE=имя` перед сервисом `dbt`.
+Для отдельной базы передайте `-e GREENPLUM_DATABASE=имя` перед сервисом `dbt`.
 Источники используют базу профиля; схемы называются ровно `core` и `mart`.
 
 Дополнительные команды из корня репозитория:
@@ -62,7 +62,7 @@ docker compose run --rm dbt docs generate
 В DAG `kinopoisk_movies_daily` и `kinopoisk_movies_replay` задача `build_dbt` запускается после успешной
 `load_movies_stg`. `DockerOperator` запускает `python scripts/build.py` в образе
 `etl-pet-dbt:1.10.2`, сеть `etl-pet-net`. Перед первым запуском соберите образ
-(`docker compose build dbt`) и примените `infra/cloudberry/sql/dbt_inputs.sql`,
+(`docker compose build dbt`) и примените `infra/greenplum/sql/dbt_inputs.sql`,
 как описано выше. Пути bind mounts берутся из `ETL_PROJECT_ROOT` на Docker host.
 
 Проект и профиль монтируются только для чтения. `DBT_TARGET_PATH` и
@@ -145,8 +145,7 @@ docker compose exec -T airflow-scheduler airflow tasks test kinopoisk_movies_dai
   отклоняет публикацию, сохраняя прежний снимок. Без отдельного загрузчика таблица и
   соответствующая витрина пусты; топ из инкремента фильмов не синтезируется.
   Сравниваются только соседние календарные дни, без переноса через пробелы.
-  Агрегаты полноты материализуются перед проверкой: это обходит обнаруженное
-  ложное срабатывание HAVING с несколькими COUNT(DISTINCT) на Cloudberry.
+  Агрегаты полноты вычисляются перед сравнением.
 - Каталог начинается с даты **получения**, а не `updatedAt`. `built_at` —
   детерминированная UTC-граница конца дня; provenance `batch_id` — первое
   наблюдение фильма. Пустой инкремент не удаляет фильмы из накопленного охвата.
@@ -168,11 +167,11 @@ SQL-тесты: ключи, not_null, relationships, интервалы SCD2, к
 Описания моделей и декларации проверок находятся в `models/core/_models.yml`
 и `models/mart/_models.yml`; входы — в `models/sources.yml`, маппинги — в `seeds`.
 
-Интеграционные проверки используют одноразовую Cloudberry-базу:
+Интеграционные проверки используют одноразовую Greenplum-базу:
 
 ```bash
-# Установить CLOUDBERRY_HOST/PORT/USER/PASSWORD для локального подключения.
-RUN_DBT_TESTS=1 uv run pytest tests/integration/test_dbt_models_cloudberry.py -q
+# Установить GREENPLUM_HOST/PORT/USER/PASSWORD для локального подключения.
+RUN_DBT_TESTS=1 uv run pytest tests/integration/test_dbt_models_greenplum.py -q
 ```
 
 Проверяются повтор и full-refresh, поздние данные, конфликт времени, настоящий
@@ -187,8 +186,8 @@ rollback после записи, удалённые строки и исчез�
 
 ```bash
 docker compose run --rm dbt test
-docker compose exec -T --user gpadmin cloudberry bash -lc \
-  'source /usr/local/cloudberry-db/cloudberry-env.sh && psql -p 7000 -d etl -v ON_ERROR_STOP=1' <<'SQL'
+docker compose exec -T --user gpadmin greenplum bash -lc \
+  'source /usr/local/greenplum-db/greenplum_path.sh && psql -X -d etl -v ON_ERROR_STOP=1' <<'SQL'
 SELECT count(*) AS movie_versions FROM core.dim_movie;
 SELECT count(*) AS current_movies FROM core.v_movie_current;
 SELECT min(snapshot_date_sk), max(snapshot_date_sk), count(*)

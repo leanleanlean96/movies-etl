@@ -1,6 +1,6 @@
-"""Opt-in tests against a disposable database on the local Cloudberry cluster.
+"""Opt-in tests against a disposable database on the local Greenplum cluster.
 
-RUN_CLOUDBERRY_TESTS=1, CLOUDBERRY_* and the PostgreSQL JAR in Spark's
+RUN_GREENPLUM_TESTS=1, GREENPLUM_* and the PostgreSQL JAR in Spark's
 classpath are required. No API calls or changes to the etl database are made.
 """
 
@@ -17,21 +17,21 @@ from kinopoisk_cleaned.schema import SCHEMA
 from kinopoisk_cleaned.transformations import to_countries, to_genres, to_movies
 from kinopoisk_stg_support import (
     StagingValidationError,
-    cloudberry_settings,
+    greenplum_settings,
     validate_tables,
 )
 from psycopg2 import sql
 from pyspark.sql import functions as F
 
 pytestmark = pytest.mark.skipif(
-    os.environ.get("RUN_CLOUDBERRY_TESTS") != "1",
-    reason="Set RUN_CLOUDBERRY_TESTS=1 to use a disposable Cloudberry database",
+    os.environ.get("RUN_GREENPLUM_TESTS") != "1",
+    reason="Set RUN_GREENPLUM_TESTS=1 to use a disposable Greenplum database",
 )
 
 
 @pytest.fixture(scope="module")
 def database():
-    settings = cloudberry_settings()
+    settings = greenplum_settings()
     admin = psycopg2.connect(
         host=settings.host,
         port=settings.port,
@@ -54,7 +54,7 @@ def database():
 @pytest.fixture
 def db(spark, database):
     connection = jdbc.JdbcConnection(spark, database)
-    ddl = Path(__file__).parents[2] / "infra/cloudberry/sql/staging.sql"
+    ddl = Path(__file__).parents[2] / "infra/greenplum/sql/staging.sql"
     for statement in ddl.read_text().split(";"):
         if statement.strip():
             connection.execute(statement)

@@ -3,9 +3,9 @@ from datetime import UTC, datetime
 import pytest
 from kinopoisk_stg_support import (
     LOAD_CONTRACT,
-    CloudberrySettings,
+    GreenplumSettings,
     StagingValidationError,
-    cloudberry_settings,
+    greenplum_settings,
     manifest_table_columns,
     manifest_table_schema,
     parse_args,
@@ -110,14 +110,14 @@ def frames(spark, *, movie_overrides=None, genre_overrides=None, duplicate=False
 
 
 def test_environment_and_secret_redaction():
-    settings = cloudberry_settings(
+    settings = greenplum_settings(
         {
-            "CLOUDBERRY_HOST": "cloudberry",
-            "CLOUDBERRY_USER": "gpadmin",
-            "CLOUDBERRY_PASSWORD": "example-secret",
+            "GREENPLUM_HOST": "greenplum",
+            "GREENPLUM_USER": "gpadmin",
+            "GREENPLUM_PASSWORD": "example-secret",
         }
     )
-    assert settings.jdbc_url == "jdbc:postgresql://cloudberry:7000/etl"
+    assert settings.jdbc_url == "jdbc:postgresql://greenplum:7000/etl"
     assert settings.password == "example-secret"
     assert "example-secret" not in repr(settings)
     assert "example-secret" not in settings.jdbc_url
@@ -125,26 +125,26 @@ def test_environment_and_secret_redaction():
 
 @pytest.mark.parametrize("port", ["abc", "0", "65536"])
 def test_bad_port(port):
-    with pytest.raises(ValueError, match="CLOUDBERRY_PORT"):
-        cloudberry_settings(
+    with pytest.raises(ValueError, match="GREENPLUM_PORT"):
+        greenplum_settings(
             {
-                "CLOUDBERRY_HOST": "cloudberry",
-                "CLOUDBERRY_USER": "gpadmin",
-                "CLOUDBERRY_PASSWORD": "secret",
-                "CLOUDBERRY_PORT": port,
+                "GREENPLUM_HOST": "greenplum",
+                "GREENPLUM_USER": "gpadmin",
+                "GREENPLUM_PASSWORD": "secret",
+                "GREENPLUM_PORT": port,
             }
         )
 
 
 def test_missing_secret_is_not_filled_with_default():
-    with pytest.raises(ValueError, match="CLOUDBERRY_PASSWORD"):
-        cloudberry_settings(
-            {"CLOUDBERRY_HOST": "localhost", "CLOUDBERRY_USER": "gpadmin"}
+    with pytest.raises(ValueError, match="GREENPLUM_PASSWORD"):
+        greenplum_settings(
+            {"GREENPLUM_HOST": "localhost", "GREENPLUM_USER": "gpadmin"}
         )
 
 
 def test_database_is_url_encoded():
-    settings = CloudberrySettings("localhost", 7000, "my db?x", "gpadmin", "secret")
+    settings = GreenplumSettings("localhost", 7000, "my db?x", "gpadmin", "secret")
     assert settings.jdbc_url.endswith("/my%20db%3Fx")
 
 

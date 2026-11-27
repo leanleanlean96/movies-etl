@@ -28,7 +28,7 @@ land_movies → print_manifest_key → clean_movies → load_movies_stg
 | `clean_movies` | Spark driver в Docker, четыре cleaned Parquet-таблицы и манифест |
 | `load_movies_stg` | Spark driver в Docker, атомарная замена трёх staging-таблиц для batch_id |
 | `build_dbt` | `python scripts/build.py` во временном dbt-контейнере, общий commit core/mart |
-| `publish_clickhouse` | Управляющие HTTP-запросы в ClickHouse; данные ClickHouse читает из Cloudberry сам |
+| `publish_clickhouse` | Управляющие HTTP-запросы в ClickHouse; данные ClickHouse читает из Greenplum сам |
 
 Общая цепочка обработки определена в `plugins/kinopoisk_tasks.py` и используется
 обоими DAG. Spark запускается в client mode на `spark://spark-master:7077`;

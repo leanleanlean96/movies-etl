@@ -69,7 +69,7 @@ class StagingValidationError(ValueError):
 
 
 @dataclass(frozen=True)
-class CloudberrySettings:
+class GreenplumSettings:
     host: str
     port: int
     database: str
@@ -83,34 +83,34 @@ class CloudberrySettings:
         )
 
 
-def cloudberry_settings(
+def greenplum_settings(
     environ: Mapping[str, str] | None = None,
-) -> CloudberrySettings:
+) -> GreenplumSettings:
     env = os.environ if environ is None else environ
     values = {}
-    for name in ("CLOUDBERRY_HOST", "CLOUDBERRY_USER", "CLOUDBERRY_PASSWORD"):
+    for name in ("GREENPLUM_HOST", "GREENPLUM_USER", "GREENPLUM_PASSWORD"):
         value = env.get(name)
         if not value or not value.strip():
             raise ValueError(f"Missing environment variable: {name}")
         values[name] = value
-    host = values["CLOUDBERRY_HOST"]
+    host = values["GREENPLUM_HOST"]
     if any(char.isspace() or char in "/?#@|" for char in host):
-        raise ValueError("Invalid CLOUDBERRY_HOST")
+        raise ValueError("Invalid GREENPLUM_HOST")
     try:
-        port = int(env.get("CLOUDBERRY_PORT", "7000"))
+        port = int(env.get("GREENPLUM_PORT", "7000"))
     except ValueError:
-        raise ValueError("CLOUDBERRY_PORT must be an integer") from None
+        raise ValueError("GREENPLUM_PORT must be an integer") from None
     if not 1 <= port <= 65535:
-        raise ValueError("CLOUDBERRY_PORT must be between 1 and 65535")
-    database = env.get("CLOUDBERRY_DATABASE", "etl")
+        raise ValueError("GREENPLUM_PORT must be between 1 and 65535")
+    database = env.get("GREENPLUM_DATABASE", "etl")
     if not database.strip():
-        raise ValueError("CLOUDBERRY_DATABASE must not be empty")
-    return CloudberrySettings(
+        raise ValueError("GREENPLUM_DATABASE must not be empty")
+    return GreenplumSettings(
         host=host,
         port=port,
         database=database,
-        user=values["CLOUDBERRY_USER"],
-        password=values["CLOUDBERRY_PASSWORD"],
+        user=values["GREENPLUM_USER"],
+        password=values["GREENPLUM_PASSWORD"],
     )
 
 

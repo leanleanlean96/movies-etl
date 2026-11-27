@@ -4,7 +4,7 @@ from unittest.mock import Mock
 import kinopoisk_staging as job
 import kinopoisk_stg_jdbc as jdbc
 import pytest
-from kinopoisk_stg_support import CloudberrySettings, StagingValidationError
+from kinopoisk_stg_support import GreenplumSettings, StagingValidationError
 from test_cleaned_to_stg_support import frames, manifest, target_columns
 
 
@@ -41,7 +41,7 @@ def test_pipeline_reads_parquet_validates_and_releases_cache(
     load = Mock()
     monkeypatch.setattr(job, "load_batch", load)
     result = job.run(
-        spark, uri, CloudberrySettings("host", 7000, "db", "user", "secret")
+        spark, uri, GreenplumSettings("host", 7000, "db", "user", "secret")
     )
     assert result == {
         "batch_id": "demo",

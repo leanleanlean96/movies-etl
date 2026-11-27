@@ -1,4 +1,4 @@
-"""Compile dbt SQL and publish all models/tests in one Cloudberry transaction.
+"""Compile dbt SQL and publish all models/tests in one Greenplum transaction.
 
 No persistent technical tables. Temporary candidates disappear at commit/rollback.
 """
@@ -21,11 +21,11 @@ ROOT = PROJECT.parent
 
 def connect():
     return psycopg2.connect(
-        host=os.environ.get("CLOUDBERRY_HOST", "127.0.0.1"),
-        port=int(os.environ.get("CLOUDBERRY_PORT", "7000")),
-        user=os.environ.get("CLOUDBERRY_USER", "gpadmin"),
-        password=os.environ["CLOUDBERRY_PASSWORD"],
-        dbname=os.environ.get("CLOUDBERRY_DATABASE", "etl"),
+        host=os.environ.get("GREENPLUM_HOST", "127.0.0.1"),
+        port=int(os.environ.get("GREENPLUM_PORT", "7000")),
+        user=os.environ.get("GREENPLUM_USER", "gpadmin"),
+        password=os.environ["GREENPLUM_PASSWORD"],
+        dbname=os.environ.get("GREENPLUM_DATABASE", "etl"),
     )
 
 
