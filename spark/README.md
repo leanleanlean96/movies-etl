@@ -70,7 +70,7 @@ Cleaned-манифест версии **1** содержит исходный UR
 `kinopoisk_stg_support.py` и `kinopoisk_stg_jdbc.py`.
 Загрузчик проверяет complete-манифест, схемы Parquet и SQL, счётчики, batch_id,
 обязательные поля, уникальные ключи и связи. Целевые таблицы должны быть
-созданы заранее через [DDL staging](../infra/cloudberry/sql/staging.sql).
+созданы заранее через [DDL staging](../infra/greenplum/sql/staging.sql).
 
 | Cleaned | Целевая таблица | Ключ |
 | --- | --- | --- |
@@ -111,7 +111,7 @@ standalone-кластер. Для raw → cleaned также доступны `-
 `--input-root`, `--output-root`; последние два позволяют подменить корни путей
 для локальных проверок. У staging CLI доступен только `--manifest`.
 
-Compose передаёт staging-загрузчику `CLOUDBERRY_HOST=cloudberry`, порт `7000`,
+Compose передаёт staging-загрузчику `GREENPLUM_HOST=greenplum`, порт `5432`,
 БД `etl`, пользователя `gpadmin` и пароль из `.env`.
 Ручные команды выше заканчиваются staging: дальнейшие
 [dbt](../dbt/README.md) и [ClickHouse](../infra/clickhouse/README.md)

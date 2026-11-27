@@ -87,15 +87,15 @@ def build_processing_tasks(source_task_id: str):
         ],
         environment={
             "AWS_REGION": "us-east-1",
-            "CLOUDBERRY_HOST": "cloudberry",
-            "CLOUDBERRY_PORT": "7000",
-            "CLOUDBERRY_DATABASE": "etl",
-            "CLOUDBERRY_USER": "gpadmin",
+            "GREENPLUM_HOST": "greenplum",
+            "GREENPLUM_PORT": "5432",
+            "GREENPLUM_DATABASE": "etl",
+            "GREENPLUM_USER": "gpadmin",
         },
         private_environment={
             "AWS_ACCESS_KEY_ID": os.environ["MINIO_ROOT_USER"],
             "AWS_SECRET_ACCESS_KEY": os.environ["MINIO_ROOT_PASSWORD"],
-            "CLOUDBERRY_PASSWORD": os.environ["CLOUDBERRY_PASSWORD"],
+            "GREENPLUM_PASSWORD": os.environ["GREENPLUM_PASSWORD"],
         },
         mount_tmp_dir=False,
         auto_remove="force",
@@ -133,13 +133,13 @@ def build_processing_tasks(source_task_id: str):
             "DBT_LOG_PATH": "/tmp/dbt-target/logs",
             "DBT_SEND_ANONYMOUS_USAGE_STATS": "false",
             "PYTHONUNBUFFERED": "1",
-            "CLOUDBERRY_HOST": "cloudberry",
-            "CLOUDBERRY_PORT": "7000",
-            "CLOUDBERRY_DATABASE": "etl",
-            "CLOUDBERRY_USER": "gpadmin",
+            "GREENPLUM_HOST": "greenplum",
+            "GREENPLUM_PORT": "5432",
+            "GREENPLUM_DATABASE": "etl",
+            "GREENPLUM_USER": "gpadmin",
         },
         private_environment={
-            "CLOUDBERRY_PASSWORD": os.environ["CLOUDBERRY_PASSWORD"],
+            "GREENPLUM_PASSWORD": os.environ["GREENPLUM_PASSWORD"],
         },
         mount_tmp_dir=False,
         auto_remove="force",
@@ -157,7 +157,7 @@ def build_processing_tasks(source_task_id: str):
         retry_delay=timedelta(minutes=5),
     )
     def refresh_clickhouse_marts() -> None:
-        # Airflow only sends control statements; ClickHouse reads Cloudberry itself.
+        # Airflow only sends control statements; ClickHouse reads Greenplum itself.
         import logging
         from pathlib import Path
 

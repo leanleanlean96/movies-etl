@@ -1,4 +1,4 @@
-"""Real dbt SQL on disposable Cloudberry; RUN_DBT_TESTS=1 and CLOUDBERRY_* required."""
+"""Real dbt SQL on disposable Greenplum; RUN_DBT_TESTS=1 and GREENPLUM_* required."""
 
 import importlib.util
 import json
@@ -15,7 +15,7 @@ from psycopg2 import sql
 ROOT = Path(__file__).resolve().parents[2]
 pytestmark = pytest.mark.skipif(
     os.environ.get("RUN_DBT_TESTS") != "1",
-    reason="Set RUN_DBT_TESTS=1 for disposable Cloudberry dbt tests",
+    reason="Set RUN_DBT_TESTS=1 for disposable Greenplum dbt tests",
 )
 spec = importlib.util.spec_from_file_location(
     "dbt_publish", ROOT / "dbt/scripts/build.py"
@@ -27,10 +27,10 @@ spec.loader.exec_module(build)
 @pytest.fixture(scope="module")
 def warehouse(tmp_path_factory):
     settings = {
-        "host": os.getenv("CLOUDBERRY_HOST", "127.0.0.1"),
-        "port": os.getenv("CLOUDBERRY_PORT", "7000"),
-        "user": os.getenv("CLOUDBERRY_USER", "gpadmin"),
-        "password": os.environ["CLOUDBERRY_PASSWORD"],
+        "host": os.getenv("GREENPLUM_HOST", "127.0.0.1"),
+        "port": os.getenv("GREENPLUM_PORT", "7000"),
+        "user": os.getenv("GREENPLUM_USER", "gpadmin"),
+        "password": os.environ["GREENPLUM_PASSWORD"],
     }
     name = "dbt_test_" + uuid4().hex
     directory = tmp_path_factory.mktemp("dbt")
@@ -41,20 +41,20 @@ def warehouse(tmp_path_factory):
         try:
             with closing(psycopg2.connect(**settings, dbname=name)) as conn:
                 with conn, conn.cursor() as c:
-                    c.execute((ROOT / "infra/cloudberry/sql/staging.sql").read_text())
+                    c.execute((ROOT / "infra/greenplum/sql/staging.sql").read_text())
                     c.execute(
-                        (ROOT / "infra/cloudberry/sql/dbt_inputs.sql").read_text()
+                        (ROOT / "infra/greenplum/sql/dbt_inputs.sql").read_text()
                     )
                 env = dict(
                     os.environ,
-                    CLOUDBERRY_DATABASE=name,
+                    GREENPLUM_DATABASE=name,
                     DBT_TARGET_PATH=str(directory / "target"),
                     DBT_LOG_PATH=str(directory / "logs"),
                     DBT_PROFILES_DIR=str(ROOT / "infra/dbt/profiles"),
                 )
                 subprocess.run(
                     [
-                        str(ROOT / ".venv/bin/dbt"),
+                        "dbt",
                         "compile",
                         "--project-dir",
                         str(ROOT / "dbt"),
@@ -165,7 +165,10 @@ def test_conflicting_timestamp_rejects_entire_publication(state):
     before = snapshot(conn, manifest)
     execute(
         conn,
-        "INSERT INTO stg.movies SELECT id,'conflict',source_page,source_updated_at,created_at,ingested_at,type,'Conflicting',alternative_name,year,movie_length,age_rating,rating_mpaa,status,is_series,tickets_on_sale,imdb_id,tmdb_id,kp_hd_id,rating_kp,rating_imdb,rating_tmdb,rating_film_critics,rating_russian_film_critics,votes_kp,votes_imdb,votes_tmdb,votes_film_critics,votes_russian_film_critics,top10,top250,budget_value,budget_currency,fees_world_value,fees_world_currency,fees_russia_value,fees_russia_currency,fees_usa_value,fees_usa_currency,premiere_world,premiere_russia,premiere_digital,premiere_dvd,premiere_bluray,genres_complete,countries_complete FROM stg.movies WHERE id=1 AND batch_id='a'",
+        """CREATE TEMP TABLE conflicting_movie ON COMMIT DROP AS
+            SELECT * FROM stg.movies WHERE id=1 AND batch_id='a';
+        UPDATE conflicting_movie SET batch_id='conflict', name='Conflicting';
+        INSERT INTO stg.movies SELECT * FROM conflicting_movie""",
     )
     with pytest.raises(RuntimeError, match="input_conflicts"):
         build.publish(conn, manifest)
@@ -289,14 +292,14 @@ def test_standard_dbt_incremental_strategy_on_postgres_adapter(state, tmp_path):
     before = snapshot(conn, manifest)
     env = dict(
         os.environ,
-        CLOUDBERRY_DATABASE=conn.info.dbname,
+        GREENPLUM_DATABASE=conn.info.dbname,
         DBT_PROFILES_DIR=str(ROOT / "infra/dbt/profiles"),
         DBT_TARGET_PATH=str(tmp_path / "target"),
         DBT_LOG_PATH=str(tmp_path / "logs"),
     )
     result = subprocess.run(
         [
-            str(ROOT / ".venv/bin/dbt"),
+            "dbt",
             "run",
             "--project-dir",
             str(ROOT / "dbt"),

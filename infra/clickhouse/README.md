@@ -5,23 +5,24 @@
 
 ClickHouse 26.8.31.2 хранит восемь локальных `MergeTree`-таблиц в БД `mart`.
 Их имена совпадают с восемью моделями `dbt/models/mart`. Данные читаются
-непосредственно из Cloudberry через PostgreSQL engine; Python в Airflow
+непосредственно из Greenplum через PostgreSQL engine; Python в Airflow
 передаёт только управляющие SQL-запросы по HTTP.
 
 ## Настройка
 
-- `config.d/cloudberry.xml` задаёт named collection `cloudberry_marts`:
-  `cloudberry:7000`, БД `etl`, схема `mart`, пользователь `gpadmin`, пароль
-  из `CLOUDBERRY_PASSWORD`.
+- `config.d/greenplum.xml` задаёт named collection `cloudberry_marts`:
+  `greenplum:5432`, БД `etl`, схема `mart`, пользователь `gpadmin`, пароль
+  из `GREENPLUM_PASSWORD`.
 - `sql/01_sources.sql` создаёт восемь внешних таблиц `ext_cloudberry.*`
-  с явным контрактом типов.
+  с явным контрактом типов. Имена `ext_cloudberry` и `cloudberry_marts`
+  сохранены для уже созданных refreshable MV.
 - `sql/02_views.sql` создаёт локальные таблицы `mart.*` и refreshable MV
   `mart.refresh_<имя витрины>`, с `EMPTY` и остановленным refresh.
 - `users.d/refresh.xml` останавливает автоматический refresh после рестарта
   сервера и задаёт `named_collection_control` пользователю `etl`.
   Если изменили `CLICKHOUSE_USER`, согласуйте этот XML.
 
-Сначала создайте таблицы Cloudberry командой dbt, затем примените
+Сначала создайте таблицы Greenplum командой dbt, затем примените
 `01_sources.sql` и `02_views.sql`: точные команды есть в
 [инструкции первого запуска](../README.md). SQL-файлы монтируются в контейнер
 в `/workspace/clickhouse`; при старте сервера автоматически не выполняются.
@@ -64,7 +65,7 @@ docker compose exec -T clickhouse sh -c \
 содержимое этой таблицы. Общей транзакции для восьми витрин нет: при ошибке
 в середине публикации часть таблиц уже может содержать новые данные.
 Повтор всей задачи заново обновляет все витрины и восстанавливает их состояние
-по текущему Cloudberry.
+по текущему Greenplum.
 
 Публикация не блокирует dbt или staging. Airflow pool сериализует отдельные
 задачи обработки, но задачи разных DAG могут чередоваться. Ручная сборка dbt
@@ -82,5 +83,5 @@ docker compose exec -T clickhouse sh -c \
 ```
 
 При ошибке проверьте лог задачи Airflow, `system.view_refreshes`, доступность
-Cloudberry, наличие моделей `mart` и соответствие типов в `01_sources.sql`.
+Greenplum, наличие моделей `mart` и соответствие типов в `01_sources.sql`.
 Интеграционные проверки публикации описаны в [tests README](../../tests/README.md).

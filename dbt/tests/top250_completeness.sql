@@ -1,5 +1,4 @@
--- Materialize aggregate values before comparing: Cloudberry can mis-plan the
--- equivalent HAVING with several COUNT(DISTINCT ...) and OR predicates.
+-- Compute the aggregate counts before evaluating completeness.
 with stats as materialized (
     select snapshot_date_sk, count(*) as rows_count,
         count(distinct movie_id) as movies_count,

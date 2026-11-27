@@ -1,7 +1,7 @@
 # ETL Pet: данные о фильмах
 
 Локальный ETL-проект: загрузка изменений фильмов из PoiskKino API, хранение
-исходных ответов в MinIO, обработка Spark, хранилище Cloudberry и аналитические
+исходных ответов в MinIO, обработка Spark, хранилище Greenplum и аналитические
 витрины в ClickHouse. Оркестрация — Airflow. Этот README — точка входа
 в документацию; описание соответствует коду и конфигурации репозитория.
 Состояние запущенного стенда и объёмы данных проверяются отдельно.
@@ -14,10 +14,11 @@ flowchart LR
     Raw --> Clean[Spark: проверка и очистка]
     Clean --> Parquet[MinIO: etl-cleaned / Parquet]
     Parquet --> Load[Spark: загрузка JDBC]
-    Load --> Stg[Cloudberry: stg]
+    Load --> Stg[Greenplum: stg]
     Stg --> Dbt[dbt: атомарная сборка]
-    Dbt --> Core[Cloudberry: core + mart]
+    Dbt --> Core[Greenplum: core + mart]
     Core --> CH[ClickHouse: 8 витрин]
+    CH --> BI[Apache Superset]
 ```
 
 Airflow запускает эту цепочку ежедневно для UTC-интервала. Исходные страницы
@@ -31,8 +32,9 @@ Airflow запускает эту цепочку ежедневно для UTC-�
 | Извлечение | `/movie`, `type=movie`, фильтр `updatedAt`, диапазон `votes.kp` от 1000 до 100000000; планирование партиций и лимиты страниц |
 | Raw → cleaned | Проверки манифеста и страниц, карантин, дедупликация, четыре Parquet-таблицы |
 | Cleaned → staging | Проверка схем, ключей и связей; атомарная замена одного батча в трёх таблицах |
-| Cloudberry / dbt | 25 моделей: 13 таблиц core, 4 текущих view и 8 таблиц mart; история SCD2, дневные снимки и агрегаты |
-| Публикация | ClickHouse читает Cloudberry через PostgreSQL engine; восемь refreshable MV обновляют локальные MergeTree-таблицы |
+| Greenplum / dbt | 25 моделей: 13 таблиц core, 4 текущих view и 8 таблиц mart; история SCD2, дневные снимки и агрегаты |
+| Публикация | ClickHouse читает Greenplum через PostgreSQL engine; восемь refreshable MV обновляют локальные MergeTree-таблицы |
+| BI | Apache Superset 6.1.0 для анализа витрин ClickHouse, профиль Compose `bi` |
 | Оркестрация | `kinopoisk_movies_daily` и `kinopoisk_movies_replay`, общий pool обработки; необязательное email-уведомление об ошибке daily DAG |
 | Проверки | pytest для Python/Spark, SQL data tests dbt, отдельные интеграционные наборы для staging, dbt и ClickHouse |
 
@@ -52,8 +54,8 @@ Airflow запускает эту цепочку ежедневно для UTC-�
 
 ## Запуск
 
-Нужны Docker с Compose v2 и доступом к Docker socket; текущий Dockerfile
-Cloudberry загружает пакет для Linux amd64. Для локальной разработки нужны
+Нужны Docker с Compose v2 и доступом к Docker socket. Compose скачивает
+готовый образ Greenplum 7.1.0. Для локальной разработки нужны
 `uv`, Python 3.11 и Java для Spark.
 
 1. Скопируйте `.env.example` в `.env`, задайте пароли, ключ API,
@@ -66,6 +68,9 @@ Cloudberry загружает пакет для Linux amd64. Для локаль
 
 Все команды по порядку, настройки и диагностика — в
 [инструкции запуска стенда](infra/README.md).
+Для существующей базы есть [инструкция перехода с Cloudberry](infra/README.md#переход-с-cloudberry).
+После публикации витрин можно отдельно запустить Superset с профилем `bi`
+и подключить ClickHouse. [Инструкция Superset](infra/superset/README.md)
 
 | Сервис | Адрес на хосте |
 | --- | --- |
@@ -73,8 +78,9 @@ Cloudberry загружает пакет для Linux amd64. Для локаль
 | MinIO Console | http://localhost:9001 — учётные данные MinIO из `.env` |
 | MinIO S3 | http://localhost:9000 |
 | Spark Master UI | http://localhost:8081 |
-| Cloudberry | `localhost:7000`, БД `etl`, пользователь `gpadmin` |
+| Greenplum | `localhost:7000`, БД `etl`, пользователь `gpadmin` |
 | ClickHouse | HTTP `localhost:8123`, native `localhost:9002` |
+| Apache Superset | http://localhost:8088 — [запуск профиля BI](infra/superset/README.md) |
 
 Порты Compose привязаны к `127.0.0.1`. Сервисы внутри Docker используют имена
 контейнеров; сеть проекта — `etl-pet-net`.
@@ -88,6 +94,7 @@ Cloudberry загружает пакет для Linux amd64. Для локаль
 | [spark/README.md](spark/README.md) | Контракты raw/cleaned/staging, очистка, карантин, ручные запуски |
 | [dbt/README.md](dbt/README.md) | Запуск, модели, SCD2, инкремент, правила расчёта и data tests |
 | [infra/clickhouse/README.md](infra/clickhouse/README.md) | Инициализация, публикация витрин, повторы и атомарность |
+| [infra/superset/README.md](infra/superset/README.md) | Запуск Superset и подключение к витринам ClickHouse |
 | [tests/README.md](tests/README.md) | Локальная разработка и запуск тестов, включая интеграционные |
 
 ## Структура репозитория
@@ -105,5 +112,5 @@ compose.yaml          локальный стек
 
 Зависимости локального Python-окружения закреплены в `uv.lock`, конфигурация —
 в `pyproject.toml`. Основные версии контейнеров: Airflow 3.3.0, Spark 4.2.0,
-Cloudberry 2.1.0, ClickHouse 26.8.31.2, dbt-core 1.10.23 / dbt-postgres 1.10.2.
+Greenplum 7.1.0, ClickHouse 26.8.31.2, dbt-core 1.10.23 / dbt-postgres 1.10.2.
 Метаданные Airflow хранятся в отдельном PostgreSQL 16. Лицензия — [MIT](LICENSE).
