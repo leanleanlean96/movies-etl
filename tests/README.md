@@ -32,22 +32,22 @@ uv run pytest -q tests/test_kinopoisk.py tests/test_partition_plan.py \
 
 ## Интеграционные проверки
 
-Сначала поднимите Cloudberry и, для публикации, ClickHouse по
+Сначала поднимите Greenplum и, для публикации, ClickHouse по
 [инструкции стенда](../infra/README.md). Тесты создают одноразовые базы
 с уникальными именами и удаляют их после завершения; нужны права создания
 и удаления баз. Основная БД `etl` не используется как тестовая.
 
 Compose читает `.env` автоматически, локальный pytest — нет. Экспортируйте
-`CLOUDBERRY_PASSWORD`, а для ClickHouse также `CLICKHOUSE_USER` и
-`CLICKHOUSE_PASSWORD` со значениями своего стенда. Для Cloudberry задайте:
+`GREENPLUM_PASSWORD`, а для ClickHouse также `CLICKHOUSE_USER` и
+`CLICKHOUSE_PASSWORD` со значениями своего стенда. Для Greenplum задайте:
 
 ```bash
-export CLOUDBERRY_HOST=127.0.0.1
-export CLOUDBERRY_PORT=7000
-export CLOUDBERRY_USER=gpadmin
+export GREENPLUM_HOST=127.0.0.1
+export GREENPLUM_PORT=7000
+export GREENPLUM_USER=gpadmin
 ```
 
-Не используйте Docker-имя `cloudberry` для подключения с хоста.
+Не используйте Docker-имя `greenplum` для подключения с хоста.
 
 ### Загрузка staging
 
@@ -60,16 +60,16 @@ docker compose run --rm --entrypoint cat spark-submit \
   /opt/spark/jars/postgresql-42.7.14.jar \
   > /tmp/etl-pet-test-jars/postgresql-42.7.14.jar
 PYSPARK_SUBMIT_ARGS='--jars /tmp/etl-pet-test-jars/postgresql-42.7.14.jar pyspark-shell' \
-  RUN_CLOUDBERRY_TESTS=1 uv run pytest -q tests/integration/test_cleaned_to_stg_cloudberry.py
+  RUN_GREENPLUM_TESTS=1 uv run pytest -q tests/integration/test_cleaned_to_stg_greenplum.py
 ```
 
 Проверяются повторная замена батча, сохранение других батчей и откат при
-ошибках загрузки. Подключение Spark к Cloudberry идёт через JDBC.
+ошибках загрузки. Подключение Spark к Greenplum идёт через JDBC.
 
 ### Модели dbt
 
 ```bash
-RUN_DBT_TESTS=1 uv run pytest -q tests/integration/test_dbt_models_cloudberry.py
+RUN_DBT_TESTS=1 uv run pytest -q tests/integration/test_dbt_models_greenplum.py
 ```
 
 Тесты сами задают профиль из `infra/dbt/profiles`, создают DDL входов и
@@ -85,8 +85,8 @@ export CLICKHOUSE_PORT=8123
 RUN_PUBLISH_TESTS=1 uv run pytest -q tests/integration/test_publish_clickhouse.py
 ```
 
-Нужны обе базы: ClickHouse читает временные таблицы Cloudberry через
-`cloudberry:7000` внутри Docker-сети. Проверяются точность типов, повторы,
+Нужны обе базы: ClickHouse читает временные таблицы Greenplum через
+`greenplum:5432` внутри Docker-сети. Проверяются точность типов, повторы,
 изменения, удаления, пустые снимки и восстановление после ошибки refresh.
 Используются отдельные временные БД и named collection ClickHouse.
 

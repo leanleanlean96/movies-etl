@@ -104,13 +104,13 @@ def target_schemas(db):
         )
         if not schemas[table]:
             raise StagingValidationError(
-                f"Missing target {contract['target']}; apply infra/cloudberry/sql/staging.sql"
+                f"Missing target {contract['target']}; apply infra/greenplum/sql/staging.sql"
             )
     return schemas
 
 
 def write_jdbc(df, target, settings):
-    # No automatic table creation: these tables retain Cloudberry types and distribution.
+    # No automatic table creation: these tables retain Greenplum types and distribution.
     df.coalesce(1).write.jdbc(
         settings.jdbc_url,
         relation(target),

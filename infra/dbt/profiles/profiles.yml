@@ -3,10 +3,10 @@ etl_pet:
   outputs:
     dev:
       type: postgres
-      host: "{{ env_var('CLOUDBERRY_HOST') }}"
-      port: "{{ env_var('CLOUDBERRY_PORT') | int }}"
-      user: "{{ env_var('CLOUDBERRY_USER') }}"
-      password: "{{ env_var('CLOUDBERRY_PASSWORD') }}"
-      dbname: "{{ env_var('CLOUDBERRY_DATABASE', 'etl') }}"
+      host: "{{ env_var('GREENPLUM_HOST') }}"
+      port: "{{ env_var('GREENPLUM_PORT') | int }}"
+      user: "{{ env_var('GREENPLUM_USER') }}"
+      password: "{{ env_var('GREENPLUM_PASSWORD') }}"
+      dbname: "{{ env_var('GREENPLUM_DATABASE', 'etl') }}"
       schema: core
       threads: 2

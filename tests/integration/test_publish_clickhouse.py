@@ -75,10 +75,10 @@ def warehouse():
     name = "refresh_test_" + uuid4().hex
     external, collection = name + "_ext", name + "_connection"
     settings = {
-        "host": os.getenv("CLOUDBERRY_HOST", "127.0.0.1"),
-        "port": int(os.getenv("CLOUDBERRY_PORT", "7000")),
-        "user": os.getenv("CLOUDBERRY_USER", "gpadmin"),
-        "password": os.environ["CLOUDBERRY_PASSWORD"],
+        "host": os.getenv("GREENPLUM_HOST", "127.0.0.1"),
+        "port": int(os.getenv("GREENPLUM_PORT", "7000")),
+        "user": os.getenv("GREENPLUM_USER", "gpadmin"),
+        "password": os.environ["GREENPLUM_PASSWORD"],
     }
     with (
         closing(psycopg2.connect(**settings, dbname="postgres")) as admin,
@@ -130,8 +130,8 @@ def warehouse():
                     "host=%(host)s, port=%(port)s, database=%(database)s, "
                     "user=%(user)s, password=%(password)s, schema='mart'",
                     parameters={
-                        "host": "cloudberry",
-                        "port": 7000,
+                        "host": "greenplum",
+                        "port": 5432,
                         "database": name,
                         "user": settings["user"],
                         "password": settings["password"],
