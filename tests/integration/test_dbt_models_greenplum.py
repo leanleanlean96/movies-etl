@@ -268,23 +268,24 @@ def test_top250_complete_snapshots_and_movements(state):
     assert snapshot(conn, manifest) == before
 
 
-def test_weekly_delta_uses_boundary_states_and_keeps_negative_changes(state):
+def test_weekly_uses_boundary_states_and_historical_movie_attributes(state):
     conn, manifest = state
     execute(
         conn,
         """INSERT INTO stg.movies(id,batch_id,source_updated_at,ingested_at,name,year,votes_kp,rating_kp)
     VALUES (1,'week-start','2026-11-08 10:00Z','2026-11-08 12:00Z','One',2000,900,7.0),
-    (1,'week-end','2026-11-09 10:00Z','2026-11-09 12:00Z','One',2000,850,6.9)""",
+    (1,'week-end','2026-11-09 10:00Z','2026-11-09 12:00Z','One renamed',2000,850,6.9),
+    (1,'after-cutoff','2026-11-11 00:00Z','2026-11-11 12:00Z','One later',2000,800,6.8)""",
     )
     build.publish(conn, manifest)
     assert rows(
         conn,
-        "SELECT votes_start,votes_end,votes_delta,is_complete_week FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-11-09'",
-    ) == [(900, 850, -50, False)]
+        "SELECT votes_start,votes_end,votes_delta,is_complete_week,name,production_year FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-11-09'",
+    ) == [(900, 850, -50, False, "One renamed", 2000)]
     assert rows(
         conn,
-        "SELECT votes_start,votes_delta FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-10-26'",
-    ) == [(None, None)]
+        "SELECT votes_start,votes_delta,name,production_year FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-10-26'",
+    ) == [(None, None, "One", 2000)]
 
 
 def test_standard_dbt_incremental_strategy_on_postgres_adapter(state, tmp_path):

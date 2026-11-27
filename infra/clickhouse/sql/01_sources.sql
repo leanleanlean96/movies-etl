@@ -7,7 +7,9 @@ CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_catalog_year_genre (
     `snapshot_date` Nullable(Date32),
     `production_year` Nullable(Int16),
     `genre_sk` Int32,
-    `movies_total` Nullable(Int64)
+    `movies_total` Nullable(Int64),
+    `genre_name` Nullable(String),
+    `genre_slug` Nullable(String)
 ) ENGINE = PostgreSQL(cloudberry_marts, table = 'mart_catalog_year_genre');
 
 CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_catalog_year_country (
@@ -15,7 +17,8 @@ CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_catalog_year_country (
     `snapshot_date` Nullable(Date32),
     `production_year` Nullable(Int16),
     `country_sk` Int32,
-    `movies_total` Nullable(Int64)
+    `movies_total` Nullable(Int64),
+    `country_name` Nullable(String)
 ) ENGINE = PostgreSQL(cloudberry_marts, table = 'mart_catalog_year_country');
 
 CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_movie_scores_current (
@@ -35,7 +38,11 @@ CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_movie_scores_current (
     `observed_at` Nullable(DateTime64(6, 'UTC')),
     `batch_id` Nullable(String),
     `name` Nullable(String),
-    `production_year` Nullable(Int16)
+    `production_year` Nullable(Int16),
+    `alternative_name` Nullable(String),
+    `movie_length_minutes` Nullable(Int32),
+    `age_rating` Nullable(Int16),
+    `rating_mpaa` Nullable(String)
 ) ENGINE = PostgreSQL(cloudberry_marts, table = 'mart_movie_scores_current');
 
 CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_budget_current_by_currency (
@@ -60,7 +67,9 @@ CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_box_office_current_by_market_curr
     `movies_with_box_office` Nullable(Int64),
     `box_office_total` Nullable(Decimal(30, 2)),
     `box_office_average` Nullable(Decimal(30, 2)),
-    `box_office_coverage_pct` Nullable(Decimal(5, 2))
+    `box_office_coverage_pct` Nullable(Decimal(5, 2)),
+    `market_code` Nullable(String),
+    `market_name` Nullable(String)
 ) ENGINE = PostgreSQL(cloudberry_marts, table = 'mart_box_office_current_by_market_currency');
 
 CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_budget_vs_box_office (
@@ -71,7 +80,17 @@ CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_budget_vs_box_office (
     `budget_currency_sk` Nullable(Int32),
     `box_office_currency_sk` Nullable(Int32),
     `common_currency_code` Nullable(String),
-    `box_office_to_budget_ratio` Nullable(Decimal(30, 6))
+    `box_office_to_budget_ratio` Nullable(Decimal(30, 6)),
+    `name` Nullable(String),
+    `production_year` Nullable(Int16),
+    `alternative_name` Nullable(String),
+    `movie_length_minutes` Nullable(Int32),
+    `age_rating` Nullable(Int16),
+    `rating_mpaa` Nullable(String),
+    `market_code` Nullable(String),
+    `market_name` Nullable(String),
+    `budget_currency_code` Nullable(String),
+    `box_office_currency_code` Nullable(String)
 ) ENGINE = PostgreSQL(cloudberry_marts, table = 'mart_budget_vs_box_office');
 
 CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_movie_popularity_weekly (
@@ -87,7 +106,13 @@ CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_movie_popularity_weekly (
     `has_end_state` Nullable(Bool),
     `is_complete_week` Nullable(Bool),
     `votes_delta` Nullable(Int64),
-    `rating_delta` Nullable(Decimal(6, 2))
+    `rating_delta` Nullable(Decimal(6, 2)),
+    `name` Nullable(String),
+    `production_year` Nullable(Int16),
+    `alternative_name` Nullable(String),
+    `movie_length_minutes` Nullable(Int32),
+    `age_rating` Nullable(Int16),
+    `rating_mpaa` Nullable(String)
 ) ENGINE = PostgreSQL(cloudberry_marts, table = 'mart_movie_popularity_weekly');
 
 CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_top250_daily_changes (
@@ -97,5 +122,11 @@ CREATE TABLE IF NOT EXISTS ext_cloudberry.mart_top250_daily_changes (
     `position` Nullable(Int32),
     `entered` Nullable(Bool),
     `exited` Nullable(Bool),
-    `position_change` Nullable(Int32)
+    `position_change` Nullable(Int32),
+    `name` Nullable(String),
+    `production_year` Nullable(Int16),
+    `alternative_name` Nullable(String),
+    `movie_length_minutes` Nullable(Int32),
+    `age_rating` Nullable(Int16),
+    `rating_mpaa` Nullable(String)
 ) ENGINE = PostgreSQL(cloudberry_marts, table = 'mart_top250_daily_changes');

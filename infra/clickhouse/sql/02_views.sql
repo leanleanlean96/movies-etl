@@ -17,7 +17,9 @@ SELECT
     `snapshot_date`,
     `production_year`,
     `genre_sk`,
-    `movies_total`
+    `movies_total`,
+    `genre_name`,
+    `genre_slug`
 FROM ext_cloudberry.mart_catalog_year_genre
 SETTINGS max_execution_time = 1200;
 
@@ -36,7 +38,8 @@ SELECT
     `snapshot_date`,
     `production_year`,
     `country_sk`,
-    `movies_total`
+    `movies_total`,
+    `country_name`
 FROM ext_cloudberry.mart_catalog_year_country
 SETTINGS max_execution_time = 1200;
 
@@ -67,7 +70,11 @@ SELECT
     `observed_at`,
     `batch_id`,
     `name`,
-    `production_year`
+    `production_year`,
+    `alternative_name`,
+    `movie_length_minutes`,
+    `age_rating`,
+    `rating_mpaa`
 FROM ext_cloudberry.mart_movie_scores_current
 SETTINGS max_execution_time = 1200;
 
@@ -114,7 +121,9 @@ SELECT
     `movies_with_box_office`,
     `box_office_total`,
     `box_office_average`,
-    `box_office_coverage_pct`
+    `box_office_coverage_pct`,
+    `market_code`,
+    `market_name`
 FROM ext_cloudberry.mart_box_office_current_by_market_currency
 SETTINGS max_execution_time = 1200;
 
@@ -136,7 +145,17 @@ SELECT
     `budget_currency_sk`,
     `box_office_currency_sk`,
     `common_currency_code`,
-    `box_office_to_budget_ratio`
+    `box_office_to_budget_ratio`,
+    `name`,
+    `production_year`,
+    `alternative_name`,
+    `movie_length_minutes`,
+    `age_rating`,
+    `rating_mpaa`,
+    `market_code`,
+    `market_name`,
+    `budget_currency_code`,
+    `box_office_currency_code`
 FROM ext_cloudberry.mart_budget_vs_box_office
 SETTINGS max_execution_time = 1200;
 
@@ -163,7 +182,13 @@ SELECT
     `has_end_state`,
     `is_complete_week`,
     `votes_delta`,
-    `rating_delta`
+    `rating_delta`,
+    `name`,
+    `production_year`,
+    `alternative_name`,
+    `movie_length_minutes`,
+    `age_rating`,
+    `rating_mpaa`
 FROM ext_cloudberry.mart_movie_popularity_weekly
 SETTINGS max_execution_time = 1200;
 
@@ -184,7 +209,13 @@ SELECT
     `position`,
     `entered`,
     `exited`,
-    `position_change`
+    `position_change`,
+    `name`,
+    `production_year`,
+    `alternative_name`,
+    `movie_length_minutes`,
+    `age_rating`,
+    `rating_mpaa`
 FROM ext_cloudberry.mart_top250_daily_changes
 SETTINGS max_execution_time = 1200;
 
