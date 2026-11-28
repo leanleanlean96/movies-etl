@@ -1,5 +1,6 @@
 """Prepare the existing Greenplum and ClickHouse contracts for the first ETL run."""
 
+import argparse
 import base64
 import hashlib
 import http.client
@@ -132,16 +133,17 @@ def create_statements(filename):
     ]
 
 
-def prepare_clickhouse(reader_password):
-    def admin_query(statement, stage, *, paused_views=False):
-        return clickhouse_query(
-            statement,
-            os.environ["CLICKHOUSE_USER"],
-            os.environ["CLICKHOUSE_PASSWORD"],
-            stage,
-            paused_views=paused_views,
-        )
+def admin_query(statement, stage, *, paused_views=False):
+    return clickhouse_query(
+        statement,
+        os.environ["CLICKHOUSE_USER"],
+        os.environ["CLICKHOUSE_PASSWORD"],
+        stage,
+        paused_views=paused_views,
+    )
 
+
+def prepare_clickhouse():
     relations = set(
         admin_query(
             "SELECT concat(database, '.', name) FROM system.tables "
@@ -161,13 +163,19 @@ def prepare_clickhouse(reader_password):
             admin_query(
                 statement, "Create ClickHouse serving relations", paused_views=True
             )
+    print("ClickHouse serving relations are ready.")
 
+
+def prepare_reader(reader_password, *, rotate=False):
     salt = secrets.token_hex(32)
     digest = hashlib.sha256((reader_password + salt).encode()).hexdigest()
+    operation = "ALTER USER" if rotate else "CREATE USER IF NOT EXISTS"
     admin_query(
-        f"CREATE USER IF NOT EXISTS {READER_USER} IDENTIFIED WITH sha256_hash "
+        f"{operation} {READER_USER} IDENTIFIED WITH sha256_hash "
         f"BY '{digest}' SALT '{salt}'",
-        "Create the Superset reader",
+        "Rotate the Superset reader password"
+        if rotate
+        else "Create the Superset reader",
     )
     for table in READER_TABLES:
         admin_query(
@@ -180,23 +188,31 @@ def prepare_clickhouse(reader_password):
             reader_password,
             f"Verify {READER_USER} access to {table}",
         )
-    print("ClickHouse serving relations and Superset reader are ready.")
+    print("Superset reader is ready.")
 
 
 def main():
-    for name in (
-        "GREENPLUM_PASSWORD",
-        "CLICKHOUSE_PASSWORD",
-        "CLICKHOUSE_READER_PASSWORD",
-    ):
-        if not os.environ.get(name):
-            raise RuntimeError(f"Set {name} before starting the stack.")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("phase", choices=("warehouse", "reader", "rotate-reader"))
+    phase = parser.parse_args().phase
+    if not os.environ.get("CLICKHOUSE_PASSWORD"):
+        raise RuntimeError("Set CLICKHOUSE_PASSWORD before starting the stack.")
+
+    if phase == "warehouse":
+        if not os.environ.get("GREENPLUM_PASSWORD"):
+            raise RuntimeError("Set GREENPLUM_PASSWORD before starting the stack.")
+        prepare_greenplum()
+        prepare_clickhouse()
+        return
+
+    reader_password = os.environ.get("CLICKHOUSE_READER_PASSWORD")
+    if not reader_password:
+        raise RuntimeError("Set CLICKHOUSE_READER_PASSWORD for Superset.")
     if os.environ["CLICKHOUSE_USER"] == READER_USER:
         raise RuntimeError(
             "CLICKHOUSE_USER must be the ClickHouse administrator account."
         )
-    prepare_greenplum()
-    prepare_clickhouse(os.environ["CLICKHOUSE_READER_PASSWORD"])
+    prepare_reader(reader_password, rotate=phase == "rotate-reader")
 
 
 if __name__ == "__main__":

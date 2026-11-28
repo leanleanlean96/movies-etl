@@ -45,10 +45,13 @@ x-superset-common: &superset-common
     SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-}
     SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:-}
 
-x-dbt-common: &dbt-common
+x-dbt-image: &dbt-image
   build:
     context: ./infra/dbt
   image: etl-pet-dbt:1.10.2
+
+x-dbt-common: &dbt-common
+  <<: *dbt-image
   environment: &dbt-env
     DBT_PROFILES_DIR: /workspace/profiles
     GREENPLUM_HOST: greenplum
@@ -308,6 +311,7 @@ services:
   warehouse-init:
     <<: *dbt-common
     entrypoint: [python, -u, /workspace/init/warehouse.py]
+    command: [warehouse]
     environment:
       <<: *dbt-env
       DBT_TARGET_PATH: /tmp/dbt-target
@@ -315,7 +319,6 @@ services:
       DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
-      CLICKHOUSE_READER_PASSWORD: ${CLICKHOUSE_READER_PASSWORD:-}
     volumes:
       - ./dbt:/workspace/dbt:ro
       - ./infra/dbt/profiles:/workspace/profiles:ro
@@ -327,6 +330,20 @@ services:
         condition: service_healthy
       clickhouse:
         condition: service_healthy
+
+  superset-reader-init:
+    <<: *dbt-image
+    entrypoint: [python, -u, /workspace/init/warehouse.py]
+    command: [reader]
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_READER_PASSWORD: ${CLICKHOUSE_READER_PASSWORD:-}
+    volumes:
+      - ./infra/init/warehouse.py:/workspace/init/warehouse.py:ro
+    depends_on:
+      warehouse-init:
+        condition: service_completed_successfully
 
   superset-db:
     image: postgres:16-alpine
@@ -392,6 +409,10 @@ services:
     depends_on:
       superset:
         condition: service_healthy
+      superset-reader-init:
+        condition: service_completed_successfully
+        # Report reader errors without interrupting Compose startup for the ETL.
+        required: false
     healthcheck:
       disable: true
 
