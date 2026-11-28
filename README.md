@@ -30,6 +30,8 @@ Airflow запускает эту цепочку ежедневно для UTC-�
 [Документация по дашбордам и запуску Superset](infra/superset/README.md) ·
 [Все скриншоты](infra/superset/README.md#скриншоты-дашбордов)
 
+Скриншоты сделаны в Superset на витринах с реальными данными.
+
 - [Cinema Overview](infra/superset/screenshots/cinema-overview.png)
 - [Movie Analytics](infra/superset/screenshots/movie-analytics.png)
 - [Rating Comparison](infra/superset/screenshots/rating-comparison.png)
