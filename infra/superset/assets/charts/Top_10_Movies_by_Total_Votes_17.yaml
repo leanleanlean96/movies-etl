@@ -1,0 +1,120 @@
+slice_name: Top 10 Movies by Total Votes
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 11__table
+  viz_type: echarts_timeseries_bar
+  matrixify_enable: false
+  matrixify_mode_columns: disabled
+  matrixify_dimension_selection_mode_columns: members
+  matrixify_dimension_columns:
+    dimension: ''
+    values: []
+  matrixify_topn_value_columns: 10
+  matrixify_all_sort_by_columns: a_to_z
+  matrixify_topn_order_columns: true
+  matrixify_show_column_headers: true
+  matrixify_fit_columns_dynamically: true
+  matrixify_mode_rows: disabled
+  matrixify_dimension_selection_mode_rows: members
+  matrixify_dimension_rows:
+    dimension: ''
+    values: []
+  matrixify_topn_value_rows: 10
+  matrixify_all_sort_by_rows: a_to_z
+  matrixify_topn_order_rows: true
+  matrixify_show_row_labels: true
+  matrixify_row_height: 300
+  matrixify_charts_per_row: 4
+  matrixify_cell_title_template: ''
+  x_axis: movie_label
+  time_grain_sqla: P1D
+  xAxisForceCategorical: false
+  x_axis_sort: total_votes_kp
+  x_axis_sort_asc: true
+  metrics:
+  - total_votes_kp
+  groupby: []
+  adhoc_filters:
+  - expressionType: SIMPLE
+    subject: observed_at
+    operator: TEMPORAL_RANGE
+    comparator: No filter
+    clause: WHERE
+    sqlExpression: null
+    isExtra: false
+    isNew: false
+    datasourceWarning: false
+    filterOptionName: filter_i0ctyq5116t_1mtl3kifd8eh
+  - expressionType: SIMPLE
+    subject: votes_kp
+    operator: IS NOT NULL
+    operatorId: IS_NOT_NULL
+    clause: WHERE
+    sqlExpression: null
+    isExtra: false
+    isNew: false
+    datasourceWarning: false
+    filterOptionName: filter_yj5g7qkx6m9_hj3rrj7qsbl
+  group_others_when_limit_reached: false
+  timeseries_limit_metric: total_votes_kp
+  order_desc: true
+  row_limit: 10
+  truncate_metric: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  forecastEnabled: false
+  forecastPeriods: 10
+  forecastInterval: 0.8
+  orientation: horizontal
+  x_axis_title: ''
+  x_axis_title_margin: 0
+  y_axis_title: votes_kp
+  y_axis_title_margin: 50
+  y_axis_title_position: Left
+  sort_series_type: sum
+  sort_series_ascending: false
+  color_scheme: googleCategory10c
+  time_shift_color: true
+  show_value: true
+  only_total: true
+  percentage_threshold: 0
+  color_by_primary_axis: false
+  minorTicks: false
+  zoomable: false
+  show_legend: false
+  legendType: scroll
+  legendOrientation: top
+  x_axis_time_format: smart_date
+  x_axis_number_format: ~g
+  xAxisLabelRotation: 0
+  xAxisLabelInterval: auto
+  y_axis_format: .3s
+  logAxis: false
+  minorSplitLine: false
+  truncateYAxis: false
+  y_axis_bounds:
+  - null
+  - null
+  truncateXAxis: true
+  force_max_interval: false
+  rich_tooltip: true
+  showTooltipTotal: true
+  showTooltipPercentage: false
+  tooltipSortByMetric: false
+  tooltipTimeFormat: smart_date
+  echart_options: '{}'
+  extra_form_data: {}
+  dashboards:
+  - 5
+query_context: '{"datasource":{"id":11,"type":"table"},"force":false,"queries":[{"filters":[{"col":"observed_at","op":"TEMPORAL_RANGE","val":"No
+  filter"},{"col":"votes_kp","op":"IS NOT NULL"}],"extras":{"time_grain_sqla":"P1D","having":"","where":""},"applied_time_extras":{},"columns":[{"timeGrain":"P1D","columnType":"BASE_AXIS","sqlExpression":"movie_label","label":"movie_label","expressionType":"SQL","isColumnReference":true}],"metrics":["total_votes_kp"],"orderby":[["total_votes_kp",false]],"annotation_layers":[],"row_limit":10,"series_columns":[],"series_limit":0,"series_limit_metric":"total_votes_kp","group_others_when_limit_reached":false,"order_desc":true,"url_params":{},"custom_params":{},"custom_form_data":{},"time_offsets":[],"post_processing":[{"operation":"pivot","options":{"index":["movie_label"],"columns":[],"aggregates":{"total_votes_kp":{"operator":"mean"}},"drop_missing_columns":false}},{"operation":"sort","options":{"by":"total_votes_kp","ascending":true}},{"operation":"flatten"}]}],"form_data":{"datasource":"11__table","viz_type":"echarts_timeseries_bar","matrixify_enable":false,"matrixify_mode_columns":"disabled","matrixify_dimension_selection_mode_columns":"members","matrixify_dimension_columns":{"dimension":"","values":[]},"matrixify_topn_value_columns":10,"matrixify_all_sort_by_columns":"a_to_z","matrixify_topn_order_columns":true,"matrixify_show_column_headers":true,"matrixify_fit_columns_dynamically":true,"matrixify_mode_rows":"disabled","matrixify_dimension_selection_mode_rows":"members","matrixify_dimension_rows":{"dimension":"","values":[]},"matrixify_topn_value_rows":10,"matrixify_all_sort_by_rows":"a_to_z","matrixify_topn_order_rows":true,"matrixify_show_row_labels":true,"matrixify_row_height":300,"matrixify_charts_per_row":4,"matrixify_cell_title_template":"","x_axis":"movie_label","time_grain_sqla":"P1D","xAxisForceCategorical":false,"x_axis_sort":"total_votes_kp","x_axis_sort_asc":true,"metrics":["total_votes_kp"],"groupby":[],"adhoc_filters":[{"expressionType":"SIMPLE","subject":"observed_at","operator":"TEMPORAL_RANGE","comparator":"No
+  filter","clause":"WHERE","sqlExpression":null,"isExtra":false,"isNew":false,"datasourceWarning":false,"filterOptionName":"filter_i0ctyq5116t_1mtl3kifd8eh"},{"expressionType":"SIMPLE","subject":"votes_kp","operator":"IS
+  NOT NULL","operatorId":"IS_NOT_NULL","clause":"WHERE","sqlExpression":null,"isExtra":false,"isNew":false,"datasourceWarning":false,"filterOptionName":"filter_yj5g7qkx6m9_hj3rrj7qsbl"}],"group_others_when_limit_reached":false,"timeseries_limit_metric":"total_votes_kp","order_desc":true,"row_limit":10,"truncate_metric":true,"show_empty_columns":true,"comparison_type":"values","annotation_layers":[],"forecastEnabled":false,"forecastPeriods":10,"forecastInterval":0.8,"orientation":"horizontal","x_axis_title":"","x_axis_title_margin":0,"y_axis_title":"votes_kp","y_axis_title_margin":50,"y_axis_title_position":"Left","sort_series_type":"sum","sort_series_ascending":false,"color_scheme":"googleCategory10c","time_shift_color":true,"show_value":true,"only_total":true,"percentage_threshold":0,"color_by_primary_axis":false,"minorTicks":false,"zoomable":false,"show_legend":false,"legendType":"scroll","legendOrientation":"top","x_axis_time_format":"smart_date","x_axis_number_format":"~g","xAxisLabelRotation":0,"xAxisLabelInterval":"auto","y_axis_format":".3s","logAxis":false,"minorSplitLine":false,"truncateYAxis":false,"y_axis_bounds":[null,null],"truncateXAxis":true,"force_max_interval":false,"rich_tooltip":true,"showTooltipTotal":true,"showTooltipPercentage":false,"tooltipSortByMetric":false,"tooltipTimeFormat":"smart_date","echart_options":"{}","extra_form_data":{},"dashboards":[5],"force":false,"result_format":"json","result_type":"full"},"result_format":"json","result_type":"full"}'
+cache_timeout: null
+uuid: 163f2904-b923-4e99-a014-709d8ffbb0ab
+version: 1.0.0
+dataset_uuid: e6b63017-3d56-4375-97b1-09dea23d6990

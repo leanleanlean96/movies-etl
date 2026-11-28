@@ -42,9 +42,7 @@ def warehouse(tmp_path_factory):
             with closing(psycopg2.connect(**settings, dbname=name)) as conn:
                 with conn, conn.cursor() as c:
                     c.execute((ROOT / "infra/greenplum/sql/staging.sql").read_text())
-                    c.execute(
-                        (ROOT / "infra/greenplum/sql/dbt_inputs.sql").read_text()
-                    )
+                    c.execute((ROOT / "infra/greenplum/sql/dbt_inputs.sql").read_text())
                 env = dict(
                     os.environ,
                     GREENPLUM_DATABASE=name,
@@ -112,6 +110,21 @@ def execute(conn, query):
         c.execute(query)
 
 
+def test_empty_catalog_start(warehouse):
+    conn, manifest = warehouse
+    execute(
+        conn, "TRUNCATE stg.movies, stg.movie_genres, stg.movie_countries, stg.top250"
+    )
+    build.publish(conn, manifest)
+    assert rows(conn, "SELECT count(*) FROM core.fact_movie_catalog_daily") == [(0,)]
+    tree = catalog_tree(conn)
+    assert len(tree) == 1 and not tree[0][1]
+    build.publish(conn, manifest)
+    assert catalog_tree(conn) == tree
+    build.publish(conn, manifest, full_refresh=True)
+    assert rows(conn, "SELECT count(*) FROM core.fact_movie_catalog_daily") == [(0,)]
+
+
 def test_repeat_and_full_refresh_equivalence(state, capsys):
     conn, manifest = state
     before = snapshot(conn, manifest)
@@ -133,6 +146,94 @@ def test_repeat_and_full_refresh_equivalence(state, capsys):
         conn,
         "SELECT count(*) FROM core.fact_movie_catalog_daily WHERE movie_id=3 AND snapshot_date_sk<20261104",
     ) == [(0,)]
+
+
+def core_policies(conn):
+    return rows(
+        conn,
+        """SELECT c.relname, c.oid, p.policytype, ARRAY(
+        SELECT a.attname::text
+        FROM unnest(p.distkey) WITH ORDINALITY AS k(attnum, ord)
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum = k.attnum
+        ORDER BY k.ord
+    ) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    JOIN gp_distribution_policy p ON p.localoid = c.oid
+    WHERE n.nspname = 'core' AND NOT c.relispartition ORDER BY c.relname""",
+    )
+
+
+def assert_core_policies(conn):
+    policies = core_policies(conn)
+    assert {name for name, *_ in policies} == set(build.CORE_DISTRIBUTION)
+    leaves = rows(
+        conn,
+        """SELECT p.policytype, ARRAY(
+        SELECT a.attname::text FROM unnest(p.distkey) WITH ORDINALITY k(attnum, ord)
+        JOIN pg_attribute a ON a.attrelid=p.localoid AND a.attnum=k.attnum ORDER BY k.ord)
+        FROM pg_partition_tree('core.fact_movie_catalog_daily') t
+        JOIN gp_distribution_policy p ON p.localoid=t.relid WHERE t.isleaf""",
+    )
+    assert leaves
+    assert all(item == ("p", ["movie_id"]) for item in leaves)
+    for name, _, policy, keys in policies:
+        expected = build.CORE_DISTRIBUTION[name]
+        assert (policy, keys) == (
+            ("r", []) if expected is None else ("p", list(expected))
+        )
+
+
+def test_core_distribution_creation_repeat_and_full_refresh(state, capsys):
+    conn, manifest = state
+    assert_core_policies(conn)
+    before = core_policies(conn)
+    capsys.readouterr()
+    build.publish(conn, manifest)
+    build.publish(conn, manifest, full_refresh=True)
+    assert "distribution updated" not in capsys.readouterr().out
+    assert core_policies(conn) == before
+
+
+def test_core_distribution_migration_is_atomic_and_preserves_data(state, capsys):
+    conn, manifest = state
+    before = snapshot(conn, manifest)
+    lookups = {
+        name: rows(
+            conn,
+            sql.SQL("SELECT * FROM core.{} ORDER BY 1").format(sql.Identifier(name)),
+        )
+        for name in ("currency_mapping", "market_mapping")
+    }
+    with conn, conn.cursor() as c:
+        for name in build.CORE_DISTRIBUTION:
+            c.execute(
+                sql.SQL("ALTER TABLE core.{} SET DISTRIBUTED RANDOMLY").format(
+                    sql.Identifier(name)
+                )
+            )
+    old_policies = core_policies(conn)
+    with pytest.raises(RuntimeError, match="Injected"):
+        build.publish(conn, manifest, fail_after="fact_budget_history")
+    assert core_policies(conn) == old_policies
+    assert snapshot(conn, manifest) == before
+    build.publish(conn, manifest)
+    assert_core_policies(conn)
+    assert [(r[0], r[1]) for r in core_policies(conn)] == [
+        (r[0], r[1]) for r in old_policies
+    ]
+    assert snapshot(conn, manifest) == before
+    for name, values in lookups.items():
+        assert (
+            rows(
+                conn,
+                sql.SQL("SELECT * FROM core.{} ORDER BY 1").format(
+                    sql.Identifier(name)
+                ),
+            )
+            == values
+        )
+    capsys.readouterr()
+    build.publish(conn, manifest)
+    assert "distribution updated" not in capsys.readouterr().out
 
 
 def test_late_data_reorders_history_without_rolling_back_current(state):
@@ -268,23 +369,24 @@ def test_top250_complete_snapshots_and_movements(state):
     assert snapshot(conn, manifest) == before
 
 
-def test_weekly_delta_uses_boundary_states_and_keeps_negative_changes(state):
+def test_weekly_uses_boundary_states_and_historical_movie_attributes(state):
     conn, manifest = state
     execute(
         conn,
         """INSERT INTO stg.movies(id,batch_id,source_updated_at,ingested_at,name,year,votes_kp,rating_kp)
     VALUES (1,'week-start','2026-11-08 10:00Z','2026-11-08 12:00Z','One',2000,900,7.0),
-    (1,'week-end','2026-11-09 10:00Z','2026-11-09 12:00Z','One',2000,850,6.9)""",
+    (1,'week-end','2026-11-09 10:00Z','2026-11-09 12:00Z','One renamed',2000,850,6.9),
+    (1,'after-cutoff','2026-11-11 00:00Z','2026-11-11 12:00Z','One later',2000,800,6.8)""",
     )
     build.publish(conn, manifest)
     assert rows(
         conn,
-        "SELECT votes_start,votes_end,votes_delta,is_complete_week FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-11-09'",
-    ) == [(900, 850, -50, False)]
+        "SELECT votes_start,votes_end,votes_delta,is_complete_week,name,production_year FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-11-09'",
+    ) == [(900, 850, -50, False, "One renamed", 2000)]
     assert rows(
         conn,
-        "SELECT votes_start,votes_delta FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-10-26'",
-    ) == [(None, None)]
+        "SELECT votes_start,votes_delta,name,production_year FROM mart.mart_movie_popularity_weekly WHERE movie_id=1 AND week_start_date='2026-10-26'",
+    ) == [(None, None, "One", 2000)]
 
 
 def test_standard_dbt_incremental_strategy_on_postgres_adapter(state, tmp_path):
@@ -313,3 +415,290 @@ def test_standard_dbt_incremental_strategy_on_postgres_adapter(state, tmp_path):
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert snapshot(conn, manifest) == before
+
+
+def catalog_tree(conn):
+    return rows(
+        conn,
+        """SELECT t.relid::oid, t.isleaf,
+        pg_get_expr(c.relpartbound,c.oid) FROM
+        pg_partition_tree('core.fact_movie_catalog_daily') t
+        JOIN pg_class c ON c.oid=t.relid ORDER BY 1""",
+    )
+
+
+def test_catalog_months_backfill_disappeared_days_and_pruning(state):
+    conn, manifest = state
+    node = next(
+        n
+        for n in build.order_models(manifest)
+        if n["name"] == "fact_movie_catalog_daily"
+    )
+
+    def reconcile(keys):
+        values = ",".join(f"({key},1,now(),'fixture')" for key in keys)
+        query = (
+            f"SELECT * FROM (VALUES {values}) AS x(snapshot_date_sk,movie_id,built_at,batch_id)"
+            if keys
+            else "SELECT NULL::int, NULL::bigint, NULL::timestamptz, NULL::text WHERE false"
+        )
+        # Explicit types match the published table; freeze built_at for replay.
+        query = query.replace("now()", "'2024-01-01'::timestamptz")
+        query = query.replace(",1,", ",1::bigint,")
+        with conn, conn.cursor() as c:
+            c.execute("SET LOCAL statement_timeout='15min'")
+            build.reconcile(c, node, query)
+
+    reconcile([20231231, 20240101, 20240229, 20240301, 20260101])
+    for invalid in (20240230, 20241301):
+        with pytest.raises(RuntimeError, match="Invalid catalog calendar key"):
+            reconcile([invalid])
+    bounds = {r[2] for r in catalog_tree(conn) if r[1]}
+    assert {
+        "FOR VALUES FROM (20231201) TO (20240101)",
+        "FOR VALUES FROM (20240201) TO (20240301)",
+        "FOR VALUES FROM (20240301) TO (20240401)",
+    } <= bounds
+    before = catalog_tree(conn)
+    reconcile([20231231, 20240101, 20240229, 20240301, 20260101])
+    assert catalog_tree(conn) == before
+    reconcile([20240101, 20240301])
+    assert rows(
+        conn, "SELECT snapshot_date_sk FROM core.fact_movie_catalog_daily ORDER BY 1"
+    ) == [(20240101,), (20240301,)]
+    assert catalog_tree(conn) == before
+    with conn, conn.cursor() as c:
+        c.execute("SET LOCAL optimizer = on")
+        c.execute("SAVEPOINT pruning_probe")
+        c.execute("CREATE TEMP TABLE _etl_changed(snapshot_date_sk int) ON COMMIT DROP")
+        c.execute("INSERT INTO _etl_changed VALUES (20240101)")
+        c.execute("""EXPLAIN (ANALYZE, VERBOSE, COSTS OFF)
+            DELETE FROM core.fact_movie_catalog_daily t USING _etl_changed d
+            WHERE t.snapshot_date_sk >= 20240101 AND t.snapshot_date_sk < 20240201
+            AND t.snapshot_date_sk IS NOT DISTINCT FROM d.snapshot_date_sk""")
+        plan = "\n".join(r[0] for r in c.fetchall())
+        leaf_count = sum(part[1] for part in before)
+        assert f"Number of partitions to scan: 1 (out of {leaf_count})" in plan
+        c.execute("SELECT snapshot_date_sk FROM core.fact_movie_catalog_daily")
+        assert c.fetchall() == [(20240301,)]
+        c.execute("ROLLBACK TO SAVEPOINT pruning_probe")
+
+
+def test_catalog_migration_round_trip_and_failures(state):
+    from migrate_catalog import migrate
+
+    conn, manifest = state
+    before = snapshot(conn, manifest)
+    policies = core_policies(conn)
+    old_tree = catalog_tree(conn)
+    assert not migrate(conn, apply=False, reverse=True)["apply"]
+    for stage in ("copy", "swap"):
+        with pytest.raises(RuntimeError, match="Injected"):
+            migrate(conn, apply=True, reverse=True, fail_after=stage)
+        assert snapshot(conn, manifest) == before
+        assert catalog_tree(conn) == old_tree
+    migrate(conn, apply=True, reverse=True)
+    assert snapshot(conn, manifest) == before
+    after_reverse = core_policies(conn)
+    assert {r[0]: r[1] for r in policies if r[0] != "fact_movie_catalog_daily"} == {
+        r[0]: r[1] for r in after_reverse if r[0] != "fact_movie_catalog_daily"
+    }
+    assert {r[0]: r[1] for r in policies}["fact_movie_catalog_daily"] != {
+        r[0]: r[1] for r in after_reverse
+    }["fact_movie_catalog_daily"]
+    # The previous BI build used CTAS, which created a randomly distributed catalog.
+    execute(conn, "ALTER TABLE core.fact_movie_catalog_daily SET DISTRIBUTED RANDOMLY")
+    legacy_policies = core_policies(conn)
+    with pytest.raises(RuntimeError, match="Catalog physical schema incompatible"):
+        build.publish(conn, manifest)
+    assert core_policies(conn) == legacy_policies
+    assert snapshot(conn, manifest) == before
+    assert migrate(conn)["status"] == "preflight passed; no changes"
+    assert core_policies(conn) == legacy_policies
+    execute(
+        conn,
+        "CREATE VIEW core.external_catalog_test AS SELECT * FROM core.fact_movie_catalog_daily",
+    )
+    with pytest.raises(RuntimeError):
+        migrate(conn, apply=True)
+    execute(conn, "DROP VIEW core.external_catalog_test")
+    migrate(conn, apply=True)
+    assert snapshot(conn, manifest) == before
+    assert_core_policies(conn)
+    build.publish(conn, manifest)
+    assert snapshot(conn, manifest) == before
+
+
+def test_catalog_new_month_build_rollback(state):
+    conn, manifest = state
+    before = snapshot(conn, manifest)
+    tree = catalog_tree(conn)
+    execute(
+        conn,
+        """INSERT INTO stg.movies
+        (id,batch_id,source_updated_at,ingested_at,name)
+        VALUES (99,'backfill','2026-10-31 10:00Z','2026-10-31 12:00Z','Backfill')""",
+    )
+    with pytest.raises(RuntimeError, match="Injected"):
+        build.publish(conn, manifest, fail_after="fact_movie_catalog_daily")
+    assert snapshot(conn, manifest) == before
+    assert catalog_tree(conn) == tree
+    build.publish(conn, manifest)
+    assert rows(
+        conn,
+        "SELECT count(*) FROM core.fact_movie_catalog_daily WHERE snapshot_date_sk=20261031 AND movie_id=99",
+    ) == [(1,)]
+    assert any(
+        r[2] == "FOR VALUES FROM (20261001) TO (20261101)" for r in catalog_tree(conn)
+    )
+    result = snapshot(conn, manifest)
+    build.publish(conn, manifest, full_refresh=True)
+    assert snapshot(conn, manifest) == result
+    assert rows(
+        conn,
+        """SELECT count(*) FROM pg_index i JOIN pg_partition_tree('core.fact_movie_catalog_daily') t ON t.relid=i.indrelid""",
+    ) == [(0,)]
+
+
+def test_catalog_migration_refuses_leaf_metadata_and_type_consumers(state):
+    from migrate_catalog import migrate
+
+    conn, _ = state
+    with conn, conn.cursor() as cursor:
+        cursor.execute(
+            "CREATE TEMP TABLE migration_months(snapshot_date_sk int) ON COMMIT DROP"
+        )
+        cursor.execute("INSERT INTO migration_months VALUES (20240229), (20261001)")
+        build.physical.ensure_months(cursor, sql.Identifier("migration_months"))
+    leaf = rows(
+        conn,
+        """SELECT n.nspname,c.relname FROM
+        pg_partition_tree('core.fact_movie_catalog_daily') t
+        JOIN pg_class c ON c.oid=t.relid JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE t.isleaf ORDER BY c.oid DESC LIMIT 1""",
+    )[0]
+    assert len([part for part in catalog_tree(conn) if part[1]]) >= 2
+
+    def physical_state():
+        return {
+            "tree": catalog_tree(conn),
+            "rows": rows(
+                conn, "SELECT * FROM core.fact_movie_catalog_daily ORDER BY 1,2"
+            ),
+            "relations": rows(
+                conn,
+                """SELECT c.oid,c.relname,c.relkind,c.relowner,
+                c.relacl::text,c.reloptions,c.reltablespace,c.relpersistence,
+                c.relrowsecurity,c.relforcerowsecurity,c.relreplident,c.relispartition,
+                pg_get_expr(c.relpartbound,c.oid) FROM pg_class c
+                WHERE c.relnamespace='core'::regnamespace ORDER BY c.oid""",
+            ),
+            "columns": rows(
+                conn,
+                """SELECT a.attrelid,a.attnum,a.attname,a.atttypid,
+                a.attnotnull,a.attstorage,a.attstattarget,a.attacl::text,a.attidentity,
+                a.attgenerated FROM pg_attribute a JOIN pg_class c
+                ON c.oid=a.attrelid WHERE c.relnamespace='core'::regnamespace
+                AND a.attnum>0 ORDER BY 1,2""",
+            ),
+            "types": rows(
+                conn,
+                """SELECT oid,typname,typrelid,typelem,typarray
+                FROM pg_type WHERE typnamespace='core'::regnamespace ORDER BY oid""",
+            ),
+        }
+
+    writes = []
+
+    class AuditCursor(psycopg2.extensions.cursor):
+        def execute(self, query, vars=None):
+            statement = (
+                query.as_string(self)
+                if isinstance(query, sql.Composable)
+                else str(query)
+            )
+            if statement.lstrip().split(None, 1)[0].upper() in {
+                "CREATE",
+                "ALTER",
+                "DROP",
+                "INSERT",
+                "UPDATE",
+                "DELETE",
+                "GRANT",
+                "REVOKE",
+                "COMMENT",
+                "ANALYZE",
+            }:
+                writes.append(statement)
+            return super().execute(query, vars)
+
+    settings = {
+        "host": os.getenv("GREENPLUM_HOST", "127.0.0.1"),
+        "port": os.getenv("GREENPLUM_PORT", "7000"),
+        "user": os.getenv("GREENPLUM_USER", "gpadmin"),
+        "password": os.environ["GREENPLUM_PASSWORD"],
+        "dbname": conn.info.dbname,
+        "cursor_factory": AuditCursor,
+    }
+    cases = [
+        (
+            "ENABLE ROW LEVEL SECURITY",
+            "DISABLE ROW LEVEL SECURITY",
+            "Unsupported leaf metadata/dependencies",
+        ),
+        (
+            "FORCE ROW LEVEL SECURITY",
+            "NO FORCE ROW LEVEL SECURITY",
+            "Unsupported leaf metadata/dependencies",
+        ),
+        (
+            "REPLICA IDENTITY FULL",
+            "REPLICA IDENTITY DEFAULT",
+            "Unsupported leaf metadata/dependencies",
+        ),
+    ]
+    with closing(psycopg2.connect(**settings)) as audit:
+
+        def assert_refused(message):
+            before = physical_state()
+            for apply in (False, True):
+                writes.clear()
+                with pytest.raises(RuntimeError, match=message):
+                    migrate(audit, reverse=True, apply=apply)
+                assert writes == []  # Includes attempts rolled back by migrate.
+                assert physical_state() == before
+
+        for setup, cleanup, message in cases:
+            execute(
+                conn,
+                sql.SQL("ALTER TABLE {} {}").format(
+                    sql.Identifier(*leaf), sql.SQL(setup)
+                ),
+            )
+            try:
+                assert_refused(message)
+            finally:
+                execute(
+                    conn,
+                    sql.SQL("ALTER TABLE {} {}").format(
+                        sql.Identifier(*leaf), sql.SQL(cleanup)
+                    ),
+                )
+        for target in (leaf, ("core", "fact_movie_catalog_daily")):
+            for array in (False, True):
+                execute(
+                    conn,
+                    sql.SQL(
+                        "CREATE VIEW core.test_type_dependency AS SELECT NULL::{}{} AS x"
+                    ).format(sql.Identifier(*target), sql.SQL("[]" if array else "")),
+                )
+                try:
+                    assert_refused("Unknown catalog type dependencies")
+                finally:
+                    execute(conn, "DROP VIEW core.test_type_dependency")
+        original_rows = physical_state()["rows"]
+        assert migrate(audit, apply=True)["status"] == "already configured"
+        assert not migrate(audit, reverse=True)["changed"]
+        migrate(audit, reverse=True, apply=True)
+        migrate(audit, apply=True)
+        assert physical_state()["rows"] == original_rows

@@ -44,6 +44,7 @@ mkdir -p airflow/logs
 | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | MinIO Console, S3 connection Airflow и Spark |
 | `GREENPLUM_PASSWORD` | Пароль `gpadmin`, задаётся при создании кластера |
 | `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD` | Доступ к ClickHouse; пример использует `etl` |
+| `CLICKHOUSE_READER_PASSWORD` | Отдельный пароль ограниченного Superset reader; обязателен для `superset-reader-init` |
 | `SUPERSET_SECRET_KEY`, `SUPERSET_DB_PASSWORD`, `SUPERSET_ADMIN_PASSWORD` | Профиль `bi`. Ключ шифрования, пароль PostgreSQL и начальный пароль администратора Superset |
 | `KINOPOISK_API_KEY` | Ключ PoiskKino; обязателен для извлечения, replay его не использует |
 | `AIRFLOW_ALERT_EMAIL` | Получатели ошибки daily DAG через запятую; пустое значение отключает отправку |
@@ -60,79 +61,53 @@ docker run --rm python:3.11-slim \
 ```
 
 Первый вывод — `AIRFLOW_FERNET_KEY`, второй — `AIRFLOW_JWT_SECRET`.
+`CLICKHOUSE_READER_PASSWORD`, `SUPERSET_DB_PASSWORD` и
+`SUPERSET_ADMIN_PASSWORD` задайте отдельными случайными значениями; для них
+подойдёт `openssl rand -hex 32`. Сохраните секреты вне Git и не ротируйте
+`SUPERSET_SECRET_KEY`, если нужно читать уже сохранённые пароли подключений.
 SMTP JSON и примеры SSL/STARTTLS приведены в [`.env.example`](../.env.example).
 При смене `CLICKHOUSE_USER` согласуйте имя пользователя в
 [`refresh.xml`](clickhouse/users.d/refresh.xml), где права заданы для `etl`.
 
 ## Первый запуск
 
-Сначала проверьте конфигурацию без вывода подставленных секретов:
+После настройки `.env` запустите весь ETL и BI одной командой:
 
 ```bash
-docker compose config --quiet
-docker compose build
-docker compose --profile tools build dbt spark-submit
-docker compose up -d
-docker compose ps -a
+docker compose --profile bi up -d --build
 ```
 
-`airflow-init` мигрирует служебную БД и создаёт `admin`; `minio-init` создаёт
-бакеты `etl-raw` и `etl-cleaned`. Для этих двух сервисов ожидается завершение
-с кодом 0. Первый старт Greenplum занимает время: создаётся локальный кластер
-с БД `etl`. Дождитесь `healthy` у
-Greenplum, ClickHouse и Airflow API, а также успешного завершения init-сервисов.
-Из Compose-сети Greenplum доступен как `greenplum:5432`, с хоста — как
-`127.0.0.1:7000`.
+Перед запуском конфигурацию можно проверить без печати значений переменных:
+`docker compose --profile bi config --quiet`. Сервисы инициализации применяют
+staging/core/mart и ClickHouse DDL, создают бакеты, Airflow pool и пользователя
+чтения Superset. На новом стенде daily DAG автоматически включается с catchup от
+2026-10-20 UTC, поэтому старт может начать запросы к PoiskKino за пропущенные
+интервалы. До запуска задайте `KINOPOISK_API_KEY` и проверьте лимиты API.
 
-DDL таблиц данных не применяется entrypoint автоматически. Выполните по порядку:
+Проверяйте состояние и журналы подготовки:
 
 ```bash
-docker compose exec -T --user gpadmin greenplum bash -lc \
-  'source /usr/local/greenplum-db/greenplum_path.sh && psql -X -d etl -v ON_ERROR_STOP=1' \
-  < infra/greenplum/sql/staging.sql
-docker compose exec -T --user gpadmin greenplum bash -lc \
-  'source /usr/local/greenplum-db/greenplum_path.sh && psql -X -d etl -v ON_ERROR_STOP=1' \
-  < infra/greenplum/sql/dbt_inputs.sql
+docker compose --profile bi ps -a
+docker compose logs --tail=100 warehouse-init airflow-dag-init superset-reader-init superset-bootstrap
 ```
 
-Создайте core/mart на текущем staging. На новом стенде он пустой; эта сборка
-также создаёт источники для последующей настройки ClickHouse:
+`airflow-init`, `minio-init`, `warehouse-init`, `airflow-dag-init` и
+`superset-init` и `superset-reader-init` должны завершиться с кодом 0; долгоживущие службы должны быть
+`healthy`. Superset bootstrap ожидает первую успешную публикацию ClickHouse.
+Ручной повтор публикации описан в [ClickHouse README](clickhouse/README.md),
+расписание и replay — в [Airflow README](../airflow/README.md), а настройки BI —
+в [Superset README](superset/README.md).
 
-```bash
-docker compose run --rm --entrypoint python dbt scripts/build.py
-```
+## Резервная копия и восстановление
 
-Затем создайте внешние таблицы и локальные витрины ClickHouse:
-
-```bash
-docker compose exec -T clickhouse sh -c \
-  'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --multiquery' \
-  < infra/clickhouse/sql/01_sources.sql
-docker compose exec -T clickhouse sh -c \
-  'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --multiquery' \
-  < infra/clickhouse/sql/02_views.sql
-docker compose exec -T airflow-scheduler airflow pools set \
-  kinopoisk_processing 1 'Serialize daily and replay processing'
-```
-
-DDL ClickHouse создаёт пустые витрины с остановленным refresh. Публикация
-происходит после успешного dbt в DAG либо вручную по
-[инструкции ClickHouse](clickhouse/README.md).
-
-Проверьте DAG и включите ежедневную загрузку:
-
-```bash
-docker compose exec -T airflow-scheduler airflow dags list-import-errors
-docker compose exec -T airflow-scheduler airflow dags list
-docker compose exec -T airflow-scheduler airflow dags unpause kinopoisk_movies_daily
-```
-
-Включение daily DAG запускает catchup с 2026-10-20 UTC и расходует API-запросы.
-Подробности расписания и охвата — в [Airflow README](../airflow/README.md).
-Replay включается отдельно и требует URI существующего raw-манифеста.
-
-Для анализа опубликованных витрин можно включить профиль `bi`.
-Настройка описана в [инструкции Superset](superset/README.md).
+`docker compose down` сохраняет named volumes. Резервируйте базу Airflow,
+MinIO, Greenplum, ClickHouse и (при профиле `bi`) Superset отдельно; простой
+`down` не является резервной копией. Для согласованного бэкапа остановите DAG,
+дождитесь активных задач и остановите запись. Снимите логические дампы Greenplum
+и metadata PostgreSQL, а MinIO и ClickHouse сохраните их штатными средствами.
+После восстановления примените DDL/migrations из репозитория и сравните числа
+строк в staging и витринах. Тома можно удалить только если данные можно
+восстановить из проверенной копии: `docker compose down -v` удаляет все данные.
 
 ## Переход с Cloudberry
 

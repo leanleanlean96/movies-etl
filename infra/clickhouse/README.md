@@ -30,6 +30,36 @@ ClickHouse 26.8.31.2 хранит восемь локальных `MergeTree`-т
 существующую схему при изменении колонок. Контракты SQL нужно согласовывать
 с dbt-моделями.
 
+## Обновление схемы витрин на существующем стенде
+
+Приостановите публикацию из Airflow и дождитесь завершения текущих задач.
+Добавьте колонки в Greenplum и заполните их штатной сборкой dbt:
+
+```bash
+docker compose exec -T --user gpadmin greenplum bash -lc \
+  'source /usr/local/greenplum-db/greenplum_path.sh && psql -X -d etl -v ON_ERROR_STOP=1' \
+  < infra/greenplum/sql/migrate_mart_attributes.sql
+docker compose run --rm --entrypoint python dbt scripts/build.py
+```
+
+Затем примените миграцию ClickHouse, повторно выполните `01_sources.sql` и
+`02_views.sql` и запустите refresh:
+
+```bash
+(
+  set -e
+  for script in migrate_mart_attributes.sql 01_sources.sql 02_views.sql refresh.sql; do
+    docker compose exec -T clickhouse sh -c \
+      'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD" --multiquery' \
+      < "infra/clickhouse/sql/$script"
+  done
+)
+```
+
+Миграция пересоздаёт внешние таблицы и refreshable MV для затронутых витрин.
+Локальные таблицы сохраняют опубликованные строки, новые колонки заполняет refresh.
+После успешного обновления возобновите публикацию из Airflow.
+
 ## Публикация
 
 После успешной `build_dbt` задача `publish_clickhouse` последовательно

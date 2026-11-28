@@ -1,0 +1,481 @@
+dashboard_title: Movie Analytics
+description: null
+css: ''
+slug: null
+certified_by: ''
+certification_details: ''
+published: true
+uuid: 94688e9f-5c3f-447c-af42-0575c2853db1
+position:
+  CHART-1KukAznbUeRS_8lqD_GmW:
+    children: []
+    id: CHART-1KukAznbUeRS_8lqD_GmW
+    meta:
+      chartId: 10
+      height: 36
+      sliceName: movies in data mart
+      uuid: f7ff3466-e924-4d02-8ca8-241797999a8c
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - ROW-jQXd1zeT1dAraxqhUPapm
+    type: CHART
+  CHART-_5vjHpemFQM-N7oreeWt2:
+    children: []
+    id: CHART-_5vjHpemFQM-N7oreeWt2
+    meta:
+      chartId: 12
+      height: 36
+      sliceName: Average Kinopoisk Rating
+      uuid: e92a8cc9-9502-4b06-af4f-ecdcf2e6f8d8
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - ROW-jQXd1zeT1dAraxqhUPapm
+    type: CHART
+  CHART-explore-16-1:
+    children: []
+    id: CHART-explore-16-1
+    meta:
+      chartId: 16
+      height: 83
+      sliceName: KP vs IMDb Ratings by Decade
+      uuid: d5f279bb-9064-44b4-8bf1-a1c927d5c7b1
+      width: 12
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - ROW-08T8UvyBwXJkAhD2IrS76
+    type: CHART
+  CHART-explore-17-1:
+    children: []
+    id: CHART-explore-17-1
+    meta:
+      chartId: 17
+      height: 89
+      sliceName: Top 10 Movies by Total Votes
+      uuid: 163f2904-b923-4e99-a014-709d8ffbb0ab
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - ROW-QrdkQH6EhbWFeC2F4n256
+    type: CHART
+  CHART-explore-18-1:
+    children: []
+    id: CHART-explore-18-1
+    meta:
+      chartId: 18
+      height: 89
+      sliceName: Top 10 Movies by Weekly Growth
+      uuid: 411f9eb5-36f2-4027-b67b-fb9154d724a3
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - ROW-QrdkQH6EhbWFeC2F4n256
+    type: CHART
+  CHART-explore-19-1:
+    children: []
+    id: CHART-explore-19-1
+    meta:
+      chartId: 19
+      height: 140
+      sliceName: Movie Details
+      uuid: 2da1da57-00b2-496e-952c-c3cf3bc77b7a
+      width: 12
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-pwbtr8awq3jBWSWLX8Jvx
+    - ROW-IkZ9ZencI8zOPLWMFJor7
+    type: CHART
+  DASHBOARD_VERSION_KEY: v2
+  GRID_ID:
+    children:
+    - TABS-oe3-jg3K33ftElM-stM94
+    id: GRID_ID
+    parents:
+    - ROOT_ID
+    type: GRID
+  HEADER_ID:
+    id: HEADER_ID
+    meta:
+      text: Movie Analytics
+    type: HEADER
+  ROOT_ID:
+    children:
+    - GRID_ID
+    id: ROOT_ID
+    type: ROOT
+  ROW-08T8UvyBwXJkAhD2IrS76:
+    children:
+    - CHART-explore-16-1
+    id: ROW-08T8UvyBwXJkAhD2IrS76
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    type: ROW
+  ROW-IkZ9ZencI8zOPLWMFJor7:
+    children:
+    - CHART-explore-19-1
+    id: ROW-IkZ9ZencI8zOPLWMFJor7
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-pwbtr8awq3jBWSWLX8Jvx
+    type: ROW
+  ROW-QrdkQH6EhbWFeC2F4n256:
+    children:
+    - CHART-explore-18-1
+    - CHART-explore-17-1
+    id: ROW-QrdkQH6EhbWFeC2F4n256
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    type: ROW
+  ROW-jQXd1zeT1dAraxqhUPapm:
+    children:
+    - CHART-1KukAznbUeRS_8lqD_GmW
+    - CHART-_5vjHpemFQM-N7oreeWt2
+    id: ROW-jQXd1zeT1dAraxqhUPapm
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    type: ROW
+  TAB-XxciJuZ1rGxkdumonLpeM:
+    children:
+    - ROW-jQXd1zeT1dAraxqhUPapm
+    - ROW-08T8UvyBwXJkAhD2IrS76
+    - ROW-QrdkQH6EhbWFeC2F4n256
+    id: TAB-XxciJuZ1rGxkdumonLpeM
+    meta:
+      defaultText: Tab title
+      placeholder: Tab title
+      text: Analytics
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    type: TAB
+  TAB-pwbtr8awq3jBWSWLX8Jvx:
+    children:
+    - ROW-IkZ9ZencI8zOPLWMFJor7
+    id: TAB-pwbtr8awq3jBWSWLX8Jvx
+    meta:
+      defaultText: Tab title
+      placeholder: Tab title
+      text: Movie Details
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - TABS-oe3-jg3K33ftElM-stM94
+    type: TAB
+  TABS-oe3-jg3K33ftElM-stM94:
+    children:
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - TAB-pwbtr8awq3jBWSWLX8Jvx
+    id: TABS-oe3-jg3K33ftElM-stM94
+    meta: {}
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: TABS
+metadata:
+  chart_configuration:
+    '16':
+      id: 16
+      crossFilters:
+        scope: global
+        chartsInScope:
+        - 10
+        - 12
+        - 17
+        - 18
+        - 19
+    '17':
+      id: 17
+      crossFilters:
+        scope: global
+        chartsInScope:
+        - 10
+        - 12
+        - 16
+        - 18
+        - 19
+    '18':
+      id: 18
+      crossFilters:
+        scope:
+          rootPath:
+          - ROOT_ID
+          excluded: []
+        chartsInScope:
+        - 10
+        - 12
+        - 16
+        - 17
+        - 19
+    '19':
+      id: 19
+      crossFilters:
+        scope: global
+        chartsInScope:
+        - 10
+        - 12
+        - 16
+        - 17
+        - 18
+  global_chart_configuration:
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    chartsInScope:
+    - 10
+    - 12
+    - 16
+    - 17
+    - 18
+    - 19
+  native_filter_configuration:
+  - id: NATIVE_FILTER-XU0vUhcGQchBawzD3q0TX
+    type: NATIVE_FILTER
+    name: Release Year
+    filterType: filter_select
+    description: Filter movies by their release year
+    targets:
+    - column:
+        name: production_year
+      datasetUuid: e6b63017-3d56-4375-97b1-09dea23d6990
+    scope:
+      excluded: []
+      rootPath:
+      - TAB-XxciJuZ1rGxkdumonLpeM
+      - TAB-pwbtr8awq3jBWSWLX8Jvx
+    controlValues:
+      sortAscending: false
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      creatable: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    sortMetric: null
+    chartsInScope:
+    - 10
+    - 12
+    - 16
+    - 17
+    - 18
+    - 19
+    tabsInScope:
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - TAB-pwbtr8awq3jBWSWLX8Jvx
+  - id: NATIVE_FILTER-mGtjK5-riItSGmwy_qQVN
+    type: NATIVE_FILTER
+    name: Movie
+    filterType: filter_select
+    description: Filter movies by title and unique identifier.
+    targets:
+    - column:
+        name: movie_label
+      datasetUuid: e6b63017-3d56-4375-97b1-09dea23d6990
+    scope:
+      excluded: []
+      rootPath:
+      - TAB-XxciJuZ1rGxkdumonLpeM
+      - TAB-pwbtr8awq3jBWSWLX8Jvx
+    controlValues:
+      sortAscending: false
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      creatable: false
+      multiSelect: true
+      searchAllOptions: true
+      inverseSelection: false
+      sortMetric: total_votes_kp
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds:
+    - NATIVE_FILTER-XU0vUhcGQchBawzD3q0TX
+    sortMetric: null
+    chartsInScope:
+    - 10
+    - 12
+    - 16
+    - 17
+    - 18
+    - 19
+    tabsInScope:
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - TAB-pwbtr8awq3jBWSWLX8Jvx
+  - id: NATIVE_FILTER-ZksN-KbZz11umlVVuV50D
+    type: NATIVE_FILTER
+    name: Age Rating
+    filterType: filter_select
+    description: Filter movies by age restriction.
+    targets:
+    - column:
+        name: age_rating
+      datasetUuid: e6b63017-3d56-4375-97b1-09dea23d6990
+    scope:
+      rootPath:
+      - TAB-XxciJuZ1rGxkdumonLpeM
+      - TAB-pwbtr8awq3jBWSWLX8Jvx
+      excluded: []
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      creatable: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+      sortAscending: true
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    sortMetric: null
+    chartsInScope:
+    - 10
+    - 12
+    - 16
+    - 17
+    - 18
+    - 19
+    tabsInScope:
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - TAB-pwbtr8awq3jBWSWLX8Jvx
+  - id: NATIVE_FILTER-PRYVnyoPhcS-y6hy-Vef1
+    type: NATIVE_FILTER
+    name: Kinopoisk Rating
+    filterType: filter_range
+    description: Filter movies by their current Kinopoisk rating.
+    targets:
+    - column:
+        name: rating_kp
+      datasetUuid: e6b63017-3d56-4375-97b1-09dea23d6990
+    scope:
+      rootPath:
+      - TAB-XxciJuZ1rGxkdumonLpeM
+      - TAB-pwbtr8awq3jBWSWLX8Jvx
+      excluded:
+      - 18
+    controlValues:
+      enableEmptyFilter: false
+      rangeDisplayMode: slider-and-input
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    sortMetric: null
+    chartsInScope:
+    - 10
+    - 12
+    - 16
+    - 17
+    - 19
+    tabsInScope:
+    - TAB-XxciJuZ1rGxkdumonLpeM
+    - TAB-pwbtr8awq3jBWSWLX8Jvx
+  - id: NATIVE_FILTER-TmE8Onze00dTBPi1Vwe-B
+    type: NATIVE_FILTER
+    name: ISO Week
+    filterType: filter_select
+    description: Select an ISO week for popularity growth analysis, including incomplete
+      weeks.
+    targets:
+    - column:
+        name: week_label
+      datasetUuid: d0eda959-b5a6-4425-a7eb-4c2f08d8fa51
+    scope:
+      rootPath:
+      - TAB-XxciJuZ1rGxkdumonLpeM
+      excluded:
+      - 10
+      - 12
+      - 16
+      - 17
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: true
+      creatable: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+      sortAscending: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    sortMetric: null
+    requiredFirst:
+      target:
+        checked: true
+        id: filters_NATIVE_FILTER-TmE8Onze00dTBPi1Vwe-B_controlValues_defaultToFirstItem
+        prefixCls: ant-checkbox
+        className: ant-wave-target css-14vilre
+        disabled: false
+        type: checkbox
+      nativeEvent:
+        isTrusted: true
+    chartsInScope:
+    - 18
+    tabsInScope:
+    - TAB-XxciJuZ1rGxkdumonLpeM
+  chart_customization_config: []
+  map_label_colors:
+    period_votes_delta: '#3366cc'
+    total_votes_kp: '#3366cc'
+    avg_rating_kp: '#3366cc'
+    avg_rating_imdb: '#dc3912'
+  color_scheme: ''
+  refresh_frequency: 0
+  color_scheme_domain: []
+  expanded_slices: {}
+  label_colors: {}
+  shared_label_colors: []
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: true
+  default_filters: '{}'
+theme_uuid: null
+version: 1.0.0

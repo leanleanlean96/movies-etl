@@ -1,0 +1,298 @@
+table_name: bi_rating_comparison
+main_dttm_col: null
+currency_code_column: null
+description: 'Contains movies with available ratings from both Kinopoisk and IMDb.
+
+
+  Provides signed and absolute rating differences, rating intervals, release decades
+  and popularity groups for cross-platform rating comparison.
+
+
+  Grain: one row per movie.
+
+
+  Logical primary key: movie_id.
+
+
+  Source: mart.mart_movie_scores_current.
+
+
+  Purpose: rating disagreement analysis and exploratory research.
+
+
+  The dataset includes only movies available in the source data mart with non-null
+  ratings from both platforms and does not represent the entire movie catalog.'
+default_endpoint: null
+offset: 0
+cache_timeout: null
+catalog: null
+schema: mart
+sql: "SELECT\n    movie_id,\n    name,\n    production_year,\n    floor(production_year,\
+  \ -1) AS decade,\n    rating_kp,\n    rating_imdb,\n    votes_kp,\n    votes_imdb,\n\
+  \    rating_kp - rating_imdb AS rating_gap,\n    abs(rating_kp - rating_imdb) AS\
+  \ absolute_gap,\n    toInt32(floor(rating_kp)) AS kp_bin,\n    toInt32(floor(rating_imdb))\
+  \ AS imdb_bin,\n    toFloat64(floor((rating_kp - rating_imdb) * 2)) / 2 AS gap_bin,\n\
+  \    multiIf(\n        votes_kp IS NULL, 'Unknown',\n        votes_kp < 1000, '<1K',\n\
+  \        votes_kp < 5000, '1K-5K',\n        votes_kp < 10000, '5K-10K',\n      \
+  \  votes_kp < 50000, '10K-50K',\n        votes_kp < 100000, '50K-100K',\n      \
+  \  votes_kp < 500000, '100K-500K',\n        '500K+'\n    ) AS popularity_group,\n\
+  \    multiIf(\n        votes_kp IS NULL, 8,\n        votes_kp < 1000, 1,\n     \
+  \   votes_kp < 5000, 2,\n        votes_kp < 10000, 3,\n        votes_kp < 50000,\
+  \ 4,\n        votes_kp < 100000, 5,\n        votes_kp < 500000, 6,\n        7\n\
+  \    ) AS popularity_group_order\nFROM mart.mart_movie_scores_current\nWHERE rating_kp\
+  \ IS NOT NULL\n    AND rating_imdb IS NOT NULL"
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+folders: null
+uuid: 389ff642-775b-4339-98ee-23a5199c6f57
+metrics:
+- metric_name: kp_higher_share
+  verbose_name: Kinopoisk Higher Rating Share
+  metric_type: null
+  expression: countIf(rating_gap > 0) / nullIf(count(), 0)
+  description: Proportion of movies with a higher Kinopoisk rating than IMDb rating.
+  d3format: .1%
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: avg_rating_gap
+  verbose_name: Average Rating Difference
+  metric_type: null
+  expression: avgOrNull(rating_gap)
+  description: Mean signed difference between Kinopoisk and IMDb ratings.
+  d3format: +.2f
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: median_absolute_gap
+  verbose_name: Median Absolute Difference
+  metric_type: null
+  expression: medianExactOrNull(absolute_gap)
+  description: Median absolute difference between Kinopoisk and IMDb ratings.
+  d3format: .2f
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: avg_absolute_gap
+  verbose_name: Mean Absolute Difference
+  metric_type: null
+  expression: avgOrNull(absolute_gap)
+  description: Mean absolute difference between Kinopoisk and IMDb ratings.
+  d3format: .2f
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: movies_count
+  verbose_name: Movies Count
+  metric_type: count
+  expression: COUNT(*)
+  description: Number of movies with ratings from both platforms.
+  d3format: ',.0f'
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+columns:
+- column_name: gap_bin
+  verbose_name: Rating Difference Bin
+  is_dttm: false
+  is_active: true
+  type: Nullable(Float64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Lower boundary of the rating difference interval with a width of 0.5
+    points.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: imdb_bin
+  verbose_name: IMDb Rating Bin
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int32)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Lower boundary of the IMDb rating interval with a width of 1 point.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: kp_bin
+  verbose_name: Kinopoisk Rating Bin
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int32)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Lower boundary of the Kinopoisk rating interval with a width of 1 point.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_gap
+  verbose_name: Rating Difference
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(9, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Signed difference between Kinopoisk and IMDb ratings.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: popularity_group
+  verbose_name: Popularity Group
+  is_dttm: false
+  is_active: true
+  type: String
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Movie popularity group based on Kinopoisk vote count.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: absolute_gap
+  verbose_name: Absolute Rating Difference
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(9, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Absolute difference between platform ratings.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: popularity_group_order
+  verbose_name: Popularity Group Order
+  is_dttm: false
+  is_active: true
+  type: UInt8
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: Numeric ordering key for popularity groups.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_imdb
+  verbose_name: IMDb Votes
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Current number of IMDb votes.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_kp
+  verbose_name: Kinopoisk Votes
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Current number of Kinopoisk votes.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_imdb
+  verbose_name: IMDb Rating
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Current IMDb rating.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_kp
+  verbose_name: Kinopoisk Rating
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Current Kinopoisk rating.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: production_year
+  verbose_name: Release Year
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int16)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Original movie release year.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: decade
+  verbose_name: Release Decade
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int16)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Movie release decade.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: movie_id
+  verbose_name: Movie ID
+  is_dttm: false
+  is_active: true
+  type: Int64
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Unique movie identifier.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: name
+  verbose_name: Movie Title
+  is_dttm: false
+  is_active: true
+  type: Nullable(String)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: Movie title.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+version: 1.0.0
+database_uuid: cfec1435-ee36-515b-81b8-9e53c80370bf

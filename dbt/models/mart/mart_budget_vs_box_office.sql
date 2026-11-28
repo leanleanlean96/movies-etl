@@ -4,8 +4,13 @@ select b.movie_id, f.market_sk, b.amount as budget_amount, f.amount as box_offic
     b.currency_sk as budget_currency_sk, f.currency_sk as box_office_currency_sk,
     case when bc.currency_code = fc.currency_code then bc.currency_code end as common_currency_code,
     case when bc.currency_code = fc.currency_code and b.amount > 0
-        then (f.amount / b.amount)::numeric(30,6) end as box_office_to_budget_ratio
+        then (f.amount / b.amount)::numeric(30,6) end as box_office_to_budget_ratio,
+    m.name, m.production_year, m.alternative_name, m.movie_length_minutes, m.age_rating, m.rating_mpaa,
+    market.market_code, market.market_name,
+    bc.currency_code as budget_currency_code, fc.currency_code as box_office_currency_code
 from {{ ref('v_budget_current') }} b
 join {{ ref('v_box_office_current') }} f on f.movie_id = b.movie_id
 join {{ ref('dim_currency') }} bc on bc.currency_sk = b.currency_sk
 join {{ ref('dim_currency') }} fc on fc.currency_sk = f.currency_sk
+left join {{ ref('v_movie_current') }} m on m.movie_id = b.movie_id
+left join {{ ref('dim_market') }} market on market.market_sk = f.market_sk

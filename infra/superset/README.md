@@ -10,7 +10,8 @@ Superset строит графики и дашборды по опубликов
 выполнить `openssl rand -hex 32`. Сохраняйте один и тот же `SUPERSET_SECRET_KEY`
 между запусками. Superset использует его для шифрования учётных данных источников.
 
-Из корня проекта соберите образ и дождитесь готовности сервиса.
+Если основной стек уже запущен, из корня проекта соберите образ Superset и
+дождитесь готовности сервиса:
 
 ```bash
 docker compose --profile bi up -d --build --wait superset
@@ -20,6 +21,12 @@ docker compose --profile bi ps -a superset superset-init superset-db
 При повторном запуске с уже собранным образом можно использовать `--no-build`
 вместо `--build`.
 
+При полном запуске `docker compose --profile bi up -d --build` Compose также
+запускает `superset-bootstrap`: он ждёт успешную daily публикацию, импортирует
+версионируемые активы и проверяет запросы датасетов. Требуется отдельный
+`CLICKHOUSE_READER_PASSWORD` в `.env`; `superset-reader-init` создаёт reader с SELECT
+только к двум рейтинг/популярность витринам.
+
 `superset-init` применяет миграции, обновляет роли и при первом запуске создаёт
 пользователя `admin`. После завершения `superset-init` с кодом 0 и перехода
 `superset` в `healthy` откройте **http://localhost:8088** и войдите как `admin`
@@ -27,30 +34,32 @@ docker compose --profile bi ps -a superset superset-init superset-db
 пароль через интерфейс Superset. Дашборды, датасеты и подключения сохраняются
 в томе `superset-db-data`.
 
-## Подключение к ClickHouse
-
-На работающем ClickHouse создайте пользователя Superset с доступом к таблицам
-витрин. Откройте клиент под администратором ClickHouse:
+При повторном запуске bootstrap восстанавливает отсутствующие управляемые
+объекты и сохраняет UI-заголовки и раскладку. Чтобы явно применить настройки
+объектов из Git:
 
 ```bash
-docker compose exec clickhouse sh -c \
-  'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD"'
+docker compose --profile bi run --rm --no-deps superset-bootstrap --overwrite
 ```
 
-Замените `your_generated_password` отдельным паролем для `superset_reader`.
+Нужны доступный Superset, успешная публикация и доступный Airflow.
 
-```sql
-CREATE USER IF NOT EXISTS superset_reader IDENTIFIED WITH sha256_password BY 'your_generated_password';
-GRANT SELECT ON mart.mart_* TO superset_reader;
+## Подключение к ClickHouse
+
+При первом запуске `superset-reader-init` создаёт `superset_reader` и выдаёт
+доступ к `mart_movie_scores_current` и `mart_movie_popularity_weekly`. Bootstrap
+автоматически создаёт подключение Superset.
+
+Для ротации обновите `CLICKHOUSE_READER_PASSWORD` в `.env` и выполните:
+
+```bash
+docker compose run --rm --no-deps superset-reader-init rotate-reader
 ```
 
-В Superset откройте **Settings → Database Connections → + Database**. Выберите
-**ClickHouse** и переключитесь на подключение по **SQLAlchemy URI**. Проверьте
-подключение через **Test Connection**, затем сохраните его.
-
-```text
-clickhousedb://superset_reader:<пароль>@clickhouse:8123/mart
-```
+Затем обновите пароль в существующем подключении Superset через
+**Settings → Database Connections** и выполните **Test Connection**. Если
+вы готовы применить все версии объектов из Git, можно использовать явный bootstrap
+с `--overwrite`.
 
 Для специальных символов в пароле используйте URL-кодирование. Здесь
 `clickhouse:8123` — адрес сервиса внутри сети Compose.
@@ -62,6 +71,50 @@ clickhousedb://superset_reader:<пароль>@clickhouse:8123/mart
 SELECT count() FROM mart.mart_movie_scores_current;
 ```
 
+Дашборды используют native filters. Горизонтальная фильтрация графиков по
+выбору значений в другом графике (cross-filtering) не реализована и этим smoke
+не проверялась; используйте панель фильтров.
+
+## Проверенный smoke
+
+Отчёт D от 28 ноября 2026 проверял интеграцию на отдельном локальном стенде с
+PoiskKino API-фикстурой. Это подтверждает работу цепочки на контролируемом
+ответе, но не реальное API, полный catchup или исторический архив. T01 прошёл
+частично: сборка образа остановилась на сетевой ошибке Docker Hub, после чего
+готовые образы позволили продолжить Compose. Один daily интервал обработал 264
+фильма; Spark cleaning, staging, ClickHouse публикация и 104 dbt data tests
+успешны. Superset bootstrap успешно импортировал 1 database, 3 datasets, 21
+metrics, 18 charts, 3 опубликованных dashboards и 7 native filters; все три
+dataset query прошли.
+
+В тестовом прогоне два недельных графика были пусты, потому что фикстура содержала
+неполную неделю. После исправления типа лимита строк Movie Analytics загрузил
+метаданные датасетов с HTTP 200, а BI smoke test прошёл. Полное применение
+всех фильтров, горизонтальное cross-filtering и полный catchup не проверены.
+T10 и T12 частичны; поведение T11 подтверждено предыдущим прогоном C. Отчёт и
+логи остаются в каталоге временных артефактов тестового прогона, не в Git.
+
+## Research Findings
+
+Все числа ниже относятся только к синтетической выборке из 264 фильмов,
+собранной тестовым API-ответом 28 ноября 2026; это не исследование реального
+каталога или временного тренда. У 264 фильмов были оба рейтинга; 169 (64.0%)
+имели более высокий рейтинг Kinopoisk. Средняя разница Kinopoisk − IMDb была
+`+0.4087`, средняя абсолютная разница — `1.3722`. Недельные показатели в тестовом
+прогоне были пусты из-за неполной недели. Экспортированные ранее числа 26 529,
+71.9% и +0.38 этим прогоном не подтверждены.
+
+## Скриншоты дашбордов
+
+Скриншоты сделаны в Superset на витринах с реальными данными.
+В каталоге 29 747 фильмов, у 26 529 доступны оба рейтинга.
+
+![Cinema Overview, данные PoiskKino](screenshots/cinema-overview.png)
+
+![Movie Analytics, данные PoiskKino](screenshots/movie-analytics.png)
+
+![Rating Comparison, данные PoiskKino](screenshots/rating-comparison.png)
+
 ## Остановка
 
 Чтобы остановить BI и сохранить подключения и дашборды, выполните:
@@ -69,6 +122,24 @@ SELECT count() FROM mart.mart_movie_scores_current;
 ```bash
 docker compose --profile bi stop superset superset-db
 ```
+
+Для резервной копии metadata PostgreSQL:
+
+```bash
+docker compose --profile bi exec -T superset-db \
+  pg_dump -U superset -Fc superset > superset-metadata.dump
+```
+
+Восстанавливайте в пустую базу после запуска `superset-db`:
+
+```bash
+cat superset-metadata.dump | docker compose --profile bi exec -T superset-db \
+  pg_restore -U superset -d superset --clean --if-exists
+```
+
+Храните `.env` отдельно: `SUPERSET_SECRET_KEY` нужен для расшифровки сохранённых
+секретов подключений. Бэкап прочих данных описан в
+[руководстве стенда](../README.md#резервная-копия-и-восстановление).
 
 ## Диагностика
 

@@ -41,10 +41,24 @@ x-superset-common: &superset-common
   build:
     context: ./infra/superset
   image: etl-pet-superset:6.1.0
-  profiles: [bi]
   environment: &superset-env
     SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-}
     SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:-}
+
+x-dbt-image: &dbt-image
+  build:
+    context: ./infra/dbt
+  image: etl-pet-dbt:1.10.2
+
+x-dbt-common: &dbt-common
+  <<: *dbt-image
+  environment: &dbt-env
+    DBT_PROFILES_DIR: /workspace/profiles
+    GREENPLUM_HOST: greenplum
+    GREENPLUM_PORT: "5432"
+    GREENPLUM_USER: gpadmin
+    GREENPLUM_PASSWORD: ${GREENPLUM_PASSWORD}
+  working_dir: /workspace/dbt
 
 services:
   airflow-db:
@@ -62,15 +76,37 @@ services:
       retries: 10
     restart: unless-stopped
 
+  airflow-log-init:
+    image: postgres:16-alpine
+    user: "0:0"
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - |
+        if [ "$$(stat -c '%u:%g:%a' /logs)" = 0:0:755 ] && [ -z "$$(ls -A /logs)" ]; then
+          chown "$${AIRFLOW_UID}:0" /logs
+        fi
+    environment:
+      AIRFLOW_UID: ${AIRFLOW_UID:-50000}
+    volumes:
+      - ./airflow/logs:/logs
+
   airflow-init:
     <<: *airflow-common
-    command: version
+    command: [python, /opt/airflow/deploy.py, record]
     environment:
       <<: *airflow-env
       _AIRFLOW_DB_MIGRATE: "true"
       _AIRFLOW_WWW_USER_CREATE: "true"
       _AIRFLOW_WWW_USER_USERNAME: admin
       _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+    volumes:
+      - ./airflow/logs:/opt/airflow/logs
+      - ./infra/init/airflow_deploy.py:/opt/airflow/deploy.py:ro
+    depends_on:
+      airflow-db:
+        condition: service_healthy
+      airflow-log-init:
+        condition: service_completed_successfully
 
   airflow-api-server:
     <<: *airflow-common
@@ -101,7 +137,7 @@ services:
       - ./airflow/plugins:/opt/airflow/plugins
       - ./src:/opt/etl_pet/src:ro
       - ./infra/clickhouse/sql:/opt/airflow/clickhouse:ro
-      - /var/run/docker.sock:/var/run/docker.sock
+      - ${DOCKER_SOCKET_PATH:-/var/run/docker.sock}:/var/run/docker.sock
     depends_on:
       airflow-db:
         condition: service_healthy
@@ -109,6 +145,8 @@ services:
         condition: service_completed_successfully
       airflow-api-server:
         condition: service_healthy
+      airflow-dag-init:
+        condition: service_completed_successfully
     restart: unless-stopped
 
   airflow-dag-processor:
@@ -120,6 +158,21 @@ services:
       airflow-init:
         condition: service_completed_successfully
     restart: unless-stopped
+
+  airflow-dag-init:
+    <<: *airflow-common
+    command: [python, /opt/airflow/deploy.py, activate]
+    volumes:
+      - ./infra/init/airflow_deploy.py:/opt/airflow/deploy.py:ro
+    depends_on:
+      airflow-dag-processor:
+        condition: service_started
+      minio-init:
+        condition: service_completed_successfully
+      warehouse-init:
+        condition: service_completed_successfully
+      spark-worker:
+        condition: service_started
 
   minio:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
@@ -136,11 +189,9 @@ services:
 
   minio-init:
     image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z-cpuv1
-    entrypoint: ["/bin/sh", "-c"]
-    command: >-
-      "until mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}; do sleep 2; done;
-      mc mb --ignore-existing local/etl-raw;
-      mc mb --ignore-existing local/etl-cleaned"
+    entrypoint: [/bin/sh, /workspace/init/minio.sh]
+    volumes:
+      - ./infra/init/minio.sh:/workspace/init/minio.sh:ro
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
@@ -257,9 +308,45 @@ services:
       retries: 20
     restart: unless-stopped
 
+  warehouse-init:
+    <<: *dbt-common
+    entrypoint: [python, -u, /workspace/init/warehouse.py]
+    command: [warehouse]
+    environment:
+      <<: *dbt-env
+      DBT_TARGET_PATH: /tmp/dbt-target
+      DBT_LOG_PATH: /tmp/dbt-target/logs
+      DBT_SEND_ANONYMOUS_USAGE_STATS: "false"
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    volumes:
+      - ./dbt:/workspace/dbt:ro
+      - ./infra/dbt/profiles:/workspace/profiles:ro
+      - ./infra/greenplum/sql:/workspace/greenplum:ro
+      - ./infra/clickhouse/sql:/workspace/clickhouse:ro
+      - ./infra/init/warehouse.py:/workspace/init/warehouse.py:ro
+    depends_on:
+      greenplum:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+
+  superset-reader-init:
+    <<: *dbt-image
+    entrypoint: [python, -u, /workspace/init/warehouse.py]
+    command: [reader]
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_READER_PASSWORD: ${CLICKHOUSE_READER_PASSWORD:-}
+    volumes:
+      - ./infra/init/warehouse.py:/workspace/init/warehouse.py:ro
+    depends_on:
+      warehouse-init:
+        condition: service_completed_successfully
+
   superset-db:
     image: postgres:16-alpine
-    profiles: [bi]
     environment:
       POSTGRES_USER: superset
       POSTGRES_PASSWORD: ${SUPERSET_DB_PASSWORD:-}
@@ -292,23 +379,49 @@ services:
     depends_on:
       superset-init:
         condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "from urllib.request import urlopen; urlopen('http://127.0.0.1:8088/health', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     restart: unless-stopped
 
-  dbt:
-    build:
-      context: ./infra/dbt
-    image: etl-pet-dbt:1.10.2
-    profiles: [tools]
+  superset-bootstrap:
+    <<: *superset-common
+    entrypoint: [python, -u, /app/etl-pet/scripts/bootstrap.py]
+    command: []
     environment:
-      DBT_PROFILES_DIR: /workspace/profiles
-      GREENPLUM_HOST: greenplum
-      GREENPLUM_PORT: "5432"
-      GREENPLUM_USER: gpadmin
-      GREENPLUM_PASSWORD: ${GREENPLUM_PASSWORD}
+      SUPERSET_URL: http://superset:8088
+      SUPERSET_ADMIN_USERNAME: admin
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-}
+      SUPERSET_ASSETS_DIR: /app/etl-pet/assets
+      AIRFLOW_URL: http://airflow-api-server:8080
+      AIRFLOW_ADMIN_USERNAME: admin
+      AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD}
+      AIRFLOW_DAG_ID: kinopoisk_movies_daily
+      AIRFLOW_PUBLISH_TASK_ID: publish_clickhouse
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_READER_USER: superset_reader
+      CLICKHOUSE_READER_PASSWORD: ${CLICKHOUSE_READER_PASSWORD:-}
+      CLICKHOUSE_DATABASE: mart
+      BI_BOOTSTRAP_TIMEOUT_SECONDS: ${BI_BOOTSTRAP_TIMEOUT_SECONDS:-7200}
+    depends_on:
+      superset:
+        condition: service_healthy
+      superset-reader-init:
+        condition: service_completed_successfully
+        # Report reader errors without interrupting Compose startup for the ETL.
+        required: false
+    healthcheck:
+      disable: true
+
+  dbt:
+    <<: *dbt-common
+    profiles: [tools]
     volumes:
       - ./dbt:/workspace/dbt
       - ./infra/dbt/profiles:/workspace/profiles:ro
-    working_dir: /workspace/dbt
     entrypoint: [dbt]
 
 networks:

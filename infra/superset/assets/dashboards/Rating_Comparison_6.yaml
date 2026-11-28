@@ -1,0 +1,346 @@
+dashboard_title: Rating Comparison
+description: null
+css: ''
+slug: null
+certified_by: ''
+certification_details: ''
+published: true
+uuid: b86f2b0d-7299-4c12-b041-265a870e4955
+position:
+  CHART-FxHlRfqqRBbp2cYA7o--9:
+    children: []
+    id: CHART-FxHlRfqqRBbp2cYA7o--9
+    meta:
+      chartId: 24
+      height: 76
+      sliceName: Kinopoisk vs IMDb Heatmap
+      uuid: 17f782a4-d3a1-4ca6-af6d-0210e85e334c
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-0N-2obzCGcnj5VWH6lyLD
+    type: CHART
+  CHART-JAuQoxopWWQ7pyiMtAICk:
+    children: []
+    id: CHART-JAuQoxopWWQ7pyiMtAICk
+    meta:
+      chartId: 26
+      height: 61
+      sliceName: Rating Gap by Decade
+      uuid: 4c324701-809e-42b5-b5cc-d011b12f0e1d
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-ZnxlyffscPzqmq5uyToyZ
+    type: CHART
+  CHART-SPBGcvslXparPZ5DMDycU:
+    children: []
+    id: CHART-SPBGcvslXparPZ5DMDycU
+    meta:
+      chartId: 22
+      height: 36
+      sliceName: Mean Absolute Difference
+      uuid: 07ee47ae-3abf-48cf-bda1-c663d9da693e
+      width: 3
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2tYivWzAMeJOnyqlEJ3wj
+    type: CHART
+  CHART-XSIWJxSjwJqelbsQT1ovO:
+    children: []
+    id: CHART-XSIWJxSjwJqelbsQT1ovO
+    meta:
+      chartId: 23
+      height: 36
+      sliceName: Kinopoisk Higher Rating Share
+      uuid: 0a172258-97d4-4234-a6f2-3957181336d2
+      width: 3
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2tYivWzAMeJOnyqlEJ3wj
+    type: CHART
+  CHART-XZh-YNT8FVlbgE1T-X-Uk:
+    children: []
+    id: CHART-XZh-YNT8FVlbgE1T-X-Uk
+    meta:
+      chartId: 25
+      height: 76
+      sliceName: Rating Gap Distribution
+      uuid: 3e518e6e-cc6b-4b45-ad90-b570fd269367
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-0N-2obzCGcnj5VWH6lyLD
+    type: CHART
+  CHART-explore-27-1:
+    children: []
+    id: CHART-explore-27-1
+    meta:
+      chartId: 27
+      height: 61
+      sliceName: Rating Gap by Popularity
+      uuid: 378ecfa9-dea6-4fb1-9420-43e70d6eeb13
+      width: 6
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-ZnxlyffscPzqmq5uyToyZ
+    type: CHART
+  CHART-oZ9wt3AXZPl8umMsuWUow:
+    children: []
+    id: CHART-oZ9wt3AXZPl8umMsuWUow
+    meta:
+      chartId: 21
+      height: 36
+      sliceName: Average Rating Difference
+      uuid: fbb3719d-4042-4e60-882f-57328fd59a40
+      width: 3
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2tYivWzAMeJOnyqlEJ3wj
+    type: CHART
+  CHART-zhZdEdVneE9T69qKbngBZ:
+    children: []
+    id: CHART-zhZdEdVneE9T69qKbngBZ
+    meta:
+      chartId: 20
+      height: 36
+      sliceName: Movies with Both Ratings
+      uuid: 26bb75f6-c72f-46d5-8ee4-e2fbe9e62e06
+      width: 3
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-2tYivWzAMeJOnyqlEJ3wj
+    type: CHART
+  DASHBOARD_VERSION_KEY: v2
+  GRID_ID:
+    children:
+    - HEADER-UrcURPIh96FfLNmDvz440
+    - ROW-2tYivWzAMeJOnyqlEJ3wj
+    - ROW-0N-2obzCGcnj5VWH6lyLD
+    - ROW-ZnxlyffscPzqmq5uyToyZ
+    - ROW-6IDvxqhc1FSgL1vlph5FZ
+    id: GRID_ID
+    parents:
+    - ROOT_ID
+    type: GRID
+  HEADER-UrcURPIh96FfLNmDvz440:
+    children: []
+    id: HEADER-UrcURPIh96FfLNmDvz440
+    meta:
+      background: BACKGROUND_TRANSPARENT
+      headerSize: LARGE_HEADER
+      text: Rating Comparison
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: HEADER
+  HEADER_ID:
+    id: HEADER_ID
+    meta:
+      text: Rating Comparison
+    type: HEADER
+  MARKDOWN-xs05A5U09joe8iybFDrP5:
+    children: []
+    id: MARKDOWN-xs05A5U09joe8iybFDrP5
+    meta:
+      code: "## Research Findings\n\n**H1 \u2014 Systematic Rating Difference**\n\n\
+        Kinopoisk ratings are higher than IMDb ratings for 71.9% of the 26,529 comparable\
+        \ movies. The average signed difference is +0.38 points, supporting the hypothesis\
+        \ of systematic rating differences between the platforms within the analyzed\
+        \ sample.\n\n**H2 \u2014 Rating Disagreement by Release Decade**\n\nThe magnitude\
+        \ and direction of rating differences vary across release decades. However,\
+        \ differences in sample sizes should be considered when interpreting these\
+        \ results.\n\n**H3 \u2014 Popularity and Rating Disagreement**\n\nThe hypothesis\
+        \ that more popular movies have consistently smaller rating differences is\
+        \ not supported by the observed data. Mean absolute differences vary between\
+        \ 0.52 and 0.62 points across popularity groups without a consistent decreasing\
+        \ pattern."
+      height: 34
+      width: 12
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    - ROW-6IDvxqhc1FSgL1vlph5FZ
+    type: MARKDOWN
+  ROOT_ID:
+    children:
+    - GRID_ID
+    id: ROOT_ID
+    type: ROOT
+  ROW-0N-2obzCGcnj5VWH6lyLD:
+    children:
+    - CHART-FxHlRfqqRBbp2cYA7o--9
+    - CHART-XZh-YNT8FVlbgE1T-X-Uk
+    id: ROW-0N-2obzCGcnj5VWH6lyLD
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
+  ROW-2tYivWzAMeJOnyqlEJ3wj:
+    children:
+    - CHART-zhZdEdVneE9T69qKbngBZ
+    - CHART-oZ9wt3AXZPl8umMsuWUow
+    - CHART-SPBGcvslXparPZ5DMDycU
+    - CHART-XSIWJxSjwJqelbsQT1ovO
+    id: ROW-2tYivWzAMeJOnyqlEJ3wj
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
+  ROW-6IDvxqhc1FSgL1vlph5FZ:
+    children:
+    - MARKDOWN-xs05A5U09joe8iybFDrP5
+    id: ROW-6IDvxqhc1FSgL1vlph5FZ
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
+  ROW-ZnxlyffscPzqmq5uyToyZ:
+    children:
+    - CHART-explore-27-1
+    - CHART-JAuQoxopWWQ7pyiMtAICk
+    id: ROW-ZnxlyffscPzqmq5uyToyZ
+    meta:
+      background: BACKGROUND_TRANSPARENT
+    parents:
+    - ROOT_ID
+    - GRID_ID
+    type: ROW
+metadata:
+  chart_configuration:
+    '25':
+      id: 25
+      crossFilters:
+        scope: global
+        chartsInScope:
+        - 20
+        - 21
+        - 22
+        - 23
+        - 24
+        - 26
+        - 27
+    '26':
+      id: 26
+      crossFilters:
+        scope: global
+        chartsInScope:
+        - 20
+        - 21
+        - 22
+        - 23
+        - 24
+        - 25
+        - 27
+    '27':
+      id: 27
+      crossFilters:
+        scope: global
+        chartsInScope:
+        - 20
+        - 21
+        - 22
+        - 23
+        - 24
+        - 25
+        - 26
+  global_chart_configuration:
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    chartsInScope:
+    - 20
+    - 21
+    - 22
+    - 23
+    - 24
+    - 25
+    - 26
+    - 27
+  native_filter_configuration:
+  - id: NATIVE_FILTER-QOOtgArQcikotfoFjpt8G
+    type: NATIVE_FILTER
+    name: Release Year
+    filterType: filter_select
+    description: ''
+    targets:
+    - column:
+        name: production_year
+      datasetUuid: 389ff642-775b-4339-98ee-23a5199c6f57
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      creatable: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+      sortAscending: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    sortMetric: null
+  - id: NATIVE_FILTER-kgL97LXztRHCwAhwDfVIX
+    type: NATIVE_FILTER
+    name: Popularity Group
+    filterType: filter_select
+    description: ''
+    targets:
+    - column:
+        name: popularity_group
+      datasetUuid: 389ff642-775b-4339-98ee-23a5199c6f57
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      creatable: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+      sortAscending: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    sortMetric: null
+  chart_customization_config: []
+  map_label_colors:
+    movies_count: '#3366cc'
+    avg_absolute_gap: '#3366cc'
+    avg_rating_gap: '#dc3912'
+  color_scheme: ''
+  refresh_frequency: 0
+  color_scheme_domain: []
+  expanded_slices: {}
+  label_colors: {}
+  shared_label_colors:
+  - avg_absolute_gap
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: true
+  default_filters: '{}'
+theme_uuid: null
+version: 1.0.0
