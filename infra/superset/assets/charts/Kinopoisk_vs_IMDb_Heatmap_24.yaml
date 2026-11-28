@@ -1,0 +1,69 @@
+slice_name: Kinopoisk vs IMDb Heatmap
+description: null
+certified_by: null
+certification_details: null
+viz_type: heatmap_v2
+params:
+  datasource: 12__table
+  viz_type: heatmap_v2
+  matrixify_enable: false
+  matrixify_mode_columns: disabled
+  matrixify_dimension_selection_mode_columns: members
+  matrixify_dimension_columns:
+    dimension: ''
+    values: []
+  matrixify_topn_value_columns: 10
+  matrixify_all_sort_by_columns: a_to_z
+  matrixify_topn_order_columns: true
+  matrixify_show_column_headers: true
+  matrixify_fit_columns_dynamically: true
+  matrixify_mode_rows: disabled
+  matrixify_dimension_selection_mode_rows: members
+  matrixify_dimension_rows:
+    dimension: ''
+    values: []
+  matrixify_topn_value_rows: 10
+  matrixify_all_sort_by_rows: a_to_z
+  matrixify_topn_order_rows: true
+  matrixify_show_row_labels: true
+  matrixify_row_height: 300
+  matrixify_charts_per_row: 4
+  matrixify_cell_title_template: ''
+  x_axis: kp_bin
+  time_grain_sqla: P1D
+  groupby: imdb_bin
+  metric: movies_count
+  adhoc_filters: []
+  row_limit: 1000
+  sort_x_axis: alpha_asc
+  sort_y_axis: alpha_asc
+  normalize_across: heatmap
+  legend_type: continuous
+  linear_color_scheme: dark_blue
+  border_color:
+    r: 0
+    g: 0
+    b: 0
+    a: 1
+  border_width: 1
+  xscale_interval: -1
+  yscale_interval: -1
+  left_margin: auto
+  bottom_margin: auto
+  value_bounds:
+  - null
+  - null
+  y_axis_format: ',.0f'
+  x_axis_time_format: smart_date
+  xAxisLabelRotation: 0
+  show_legend: true
+  show_percentage: false
+  show_values: true
+  normalized: false
+  extra_form_data: {}
+  dashboards: []
+query_context: '{"datasource":{"id":12,"type":"table"},"force":false,"queries":[{"filters":[],"extras":{"time_grain_sqla":"P1D","having":"","where":""},"applied_time_extras":{},"columns":[{"timeGrain":"P1D","columnType":"BASE_AXIS","sqlExpression":"kp_bin","label":"kp_bin","expressionType":"SQL","isColumnReference":true},"imdb_bin"],"metrics":["movies_count"],"orderby":[["kp_bin",true],["imdb_bin",true]],"annotation_layers":[],"row_limit":1000,"series_limit":0,"group_others_when_limit_reached":false,"order_desc":true,"url_params":{},"custom_params":{},"custom_form_data":{},"post_processing":[{"operation":"rank","options":{"metric":"movies_count"}}]}],"form_data":{"datasource":"12__table","viz_type":"heatmap_v2","matrixify_enable":false,"matrixify_mode_columns":"disabled","matrixify_dimension_selection_mode_columns":"members","matrixify_dimension_columns":{"dimension":"","values":[]},"matrixify_topn_value_columns":10,"matrixify_all_sort_by_columns":"a_to_z","matrixify_topn_order_columns":true,"matrixify_show_column_headers":true,"matrixify_fit_columns_dynamically":true,"matrixify_mode_rows":"disabled","matrixify_dimension_selection_mode_rows":"members","matrixify_dimension_rows":{"dimension":"","values":[]},"matrixify_topn_value_rows":10,"matrixify_all_sort_by_rows":"a_to_z","matrixify_topn_order_rows":true,"matrixify_show_row_labels":true,"matrixify_row_height":300,"matrixify_charts_per_row":4,"matrixify_cell_title_template":"","x_axis":"kp_bin","time_grain_sqla":"P1D","groupby":"imdb_bin","metric":"movies_count","adhoc_filters":[],"row_limit":1000,"sort_x_axis":"alpha_asc","sort_y_axis":"alpha_asc","normalize_across":"heatmap","legend_type":"continuous","linear_color_scheme":"dark_blue","border_color":{"r":0,"g":0,"b":0,"a":1},"border_width":1,"xscale_interval":-1,"yscale_interval":-1,"left_margin":"auto","bottom_margin":"auto","value_bounds":[null,null],"y_axis_format":",.0f","x_axis_time_format":"smart_date","xAxisLabelRotation":0,"show_legend":true,"show_percentage":false,"show_values":true,"normalized":false,"extra_form_data":{},"dashboards":[],"force":false,"result_format":"json","result_type":"full"},"result_format":"json","result_type":"full"}'
+cache_timeout: null
+uuid: 17f782a4-d3a1-4ca6-af6d-0210e85e334c
+version: 1.0.0
+dataset_uuid: 389ff642-775b-4339-98ee-23a5199c6f57

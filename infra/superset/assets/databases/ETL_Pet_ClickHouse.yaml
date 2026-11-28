@@ -1,0 +1,14 @@
+database_name: "ETL Pet \xB7 ClickHouse"
+sqlalchemy_uri: clickhousedb://superset_reader:XXXXXXXXXX@clickhouse:8123/mart
+cache_timeout: null
+expose_in_sqllab: true
+allow_run_async: false
+allow_ctas: false
+allow_cvas: false
+allow_dml: false
+allow_file_upload: false
+extra: {}
+impersonate_user: false
+configuration_method: sqlalchemy_form
+uuid: cfec1435-ee36-515b-81b8-9e53c80370bf
+version: 1.0.0

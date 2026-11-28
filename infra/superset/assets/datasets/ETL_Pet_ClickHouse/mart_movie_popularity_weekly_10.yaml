@@ -1,0 +1,425 @@
+table_name: mart_movie_popularity_weekly
+main_dttm_col: week_start_date
+currency_code_column: null
+description: null
+default_endpoint: null
+offset: 0
+cache_timeout: null
+catalog: null
+schema: mart
+sql: ''
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+folders: null
+uuid: d0eda959-b5a6-4425-a7eb-4c2f08d8fa51
+metrics:
+- metric_name: valid_movies_count
+  verbose_name: Valid Movies Count
+  metric_type: null
+  expression: "uniqExactIf(\n    movie_id,\n    is_complete_week AND isNotNull(votes_delta)\n\
+    )"
+  description: Number of distinct movies with at least one valid weekly observation
+    within the selected period.
+  d3format: ',.0f'
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+- metric_name: total_votes_delta
+  verbose_name: Total Vote Change
+  metric_type: null
+  expression: "sumIf(\n    votes_delta,\n    is_complete_week AND isNotNull(votes_delta)\n\
+    )"
+  description: Total Kinopoisk vote change across valid weekly observations.
+  d3format: +,.0f
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+- metric_name: avg_votes_delta
+  verbose_name: Average Vote Change
+  metric_type: null
+  expression: "avgOrNullIf(votes_delta, \n    is_complete_week AND isNotNull(votes_delta))"
+  description: Average Kinopoisk vote change per valid weekly observation.
+  d3format: +,.1f
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+- metric_name: valid_observations_count
+  verbose_name: Valid Observations Count
+  metric_type: null
+  expression: "countIf(\n    is_complete_week AND isNotNull(votes_delta)\n)"
+  description: Number of observations eligible for complete-week vote change analysis.
+  d3format: ',.0f'
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+- metric_name: valid_observations_coverage
+  verbose_name: Valid Observations Coverage
+  metric_type: null
+  expression: countIf(is_complete_week AND isNotNull(votes_delta)) / nullIf(count(),
+    0)
+  description: Proportion of observations eligible for complete-week vote change analysis.
+  d3format: .1%
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+- metric_name: period_votes_delta
+  verbose_name: Period Vote Change
+  metric_type: null
+  expression: sumOrNull(votes_delta)
+  description: Total Kinopoisk vote change across available observations, including
+    incomplete weeks.
+  d3format: +,.0f
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: movies_count
+  verbose_name: Movies Count
+  metric_type: count
+  expression: uniqExact(movie_id)
+  description: Number of distinct movies within the selected period.
+  d3format: ',.0f'
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+- metric_name: observations_count
+  verbose_name: Observations Count
+  metric_type: null
+  expression: count()
+  description: Number of movie-week observations.
+  d3format: ',.0f'
+  currency: null
+  extra:
+    warning_markdown: ''
+  warning_text: null
+columns:
+- column_name: week_label
+  verbose_name: ISO Week
+  is_dttm: false
+  is_active: true
+  type: STRING
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: "concat(\n    toString(iso_year),\n    '-W',\n    leftPad(toString(iso_week_number),\
+    \ 2, '0')\n)"
+  description: ISO year and week number in YYYY-Www format.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: movie_label
+  verbose_name: movie
+  is_dttm: false
+  is_active: true
+  type: STRING
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: "concat(ifNull(name, '\u0411\u0435\u0437 \u041D\u0430\u0437\u0432\u0430\
+    \u043D\u0438\u044F'), ' [', toString(movie_id), ']')"
+  description: Movie title combined with its unique identifier. Missing titles are
+    replaced with a placeholder.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: <new column>
+  verbose_name: Valid Weekly Observation
+  is_dttm: false
+  is_active: true
+  type: BOOLEAN
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: is_complete_week AND isNotNull(votes_delta)
+  description: Indicates whether the observation is suitable for complete-week vote
+    change analysis.
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: is_valid_observation
+  verbose_name: Is Valid Observation
+  is_dttm: false
+  is_active: true
+  type: BOOLEAN
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: 'is_complete_week
+
+    AND isNotNull(votes_delta)'
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: decade
+  verbose_name: Release Decade
+  is_dttm: false
+  is_active: true
+  type: NUMERIC
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: floor(production_year, -1)
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_start
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(DECIMAL(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_end
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(DECIMAL(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_delta
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(DECIMAL(6, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: week_start_date
+  verbose_name: null
+  is_dttm: true
+  is_active: true
+  type: DATE32
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: '%Y-%m-%d'
+  extra: {}
+- column_name: age_rating
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT16)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: production_year
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT16)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: iso_week_number
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT32)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: movie_length_minutes
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT32)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: iso_year
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT32)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_delta
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_start
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_end
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(INT64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: has_start_state
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(BOOL)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: has_end_state
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(BOOL)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: is_complete_week
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(BOOL)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: alternative_name
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(STRING)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_mpaa
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(STRING)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: name
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: NULLABLE(STRING)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: movie_id
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: INT64
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+version: 1.0.0
+database_uuid: cfec1435-ee36-515b-81b8-9e53c80370bf

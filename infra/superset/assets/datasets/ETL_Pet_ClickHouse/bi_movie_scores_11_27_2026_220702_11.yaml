@@ -1,0 +1,322 @@
+table_name: bi_movie_scores 11/27/2026 22:07:02
+main_dttm_col: observed_at
+currency_code_column: null
+description: null
+default_endpoint: null
+offset: 0
+cache_timeout: null
+catalog: null
+schema: mart
+sql: "SELECT\n  movie_id,\n  name,\n  alternative_name,\n  production_year,\n  movie_length_minutes,\n\
+  \  age_rating,\n  rating_mpaa,\n  CONCAT(ifNull(name, '\u0411\u0435\u0437 \u041D\
+  \u0430\u0437\u0432\u0430\u043D\u0438\u044F'), ' [', toString(movie_id), ']') AS\
+  \ movie_label,\n  FLOOR(production_year, -1) AS decade,\n  rating_kp,\n  votes_kp,\n\
+  \  rating_imdb,\n  votes_imdb,\n  rating_tmdb,\n  votes_tmdb,\n  FLOOR(rating_kp)\
+  \ AS rating_kp_bin,\n  observed_at\nFROM mart.mart_movie_scores_current"
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+folders: null
+uuid: e6b63017-3d56-4375-97b1-09dea23d6990
+metrics:
+- metric_name: both_ratings_coverage
+  verbose_name: Joint Rating Coverage
+  metric_type: null
+  expression: countIf(isNotNull(rating_kp) AND isNotNull(rating_imdb)) / nullIf(count(),
+    0)
+  description: Proportion of movies with both Kinopoisk and IMDb ratings available.
+  d3format: .1%
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: imdb_rating_coverage
+  verbose_name: IMDb Rating Coverage
+  metric_type: null
+  expression: count(rating_imdb) / nullIf(count(), 0)
+  description: Proportion of movies with a non-null IMDb rating.
+  d3format: .1%
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: kp_rating_coverage
+  verbose_name: Kinopoisk Rating Coverage
+  metric_type: null
+  expression: count(rating_kp) / nullIf(count(), 0)
+  description: Proportion of movies with a non-null Kinopoisk rating.
+  d3format: .1%
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: movies_count
+  verbose_name: Movies Count
+  metric_type: null
+  expression: count()
+  description: Number of distinct movies within the selected dataset scope.
+  d3format: ',.0f'
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: total_votes_imdb
+  verbose_name: Total IMDb Votes
+  metric_type: null
+  expression: sum(votes_imdb)
+  description: Total current IMDb vote count across selected movies.
+  d3format: ',.0f'
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: total_votes_kp
+  verbose_name: Total Kinopoisk Votes
+  metric_type: null
+  expression: sum(votes_kp)
+  description: Total current Kinopoisk vote count across selected movies.
+  d3format: ',.0f'
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: avg_rating_imdb
+  verbose_name: Average IMDb Rating
+  metric_type: null
+  expression: avgOrNull(rating_imdb)
+  description: Arithmetic mean of available IMDb ratings.
+  d3format: .2f
+  currency: null
+  extra: {}
+  warning_text: null
+- metric_name: avg_rating_kp
+  verbose_name: Average Kinopoisk Rating
+  metric_type: null
+  expression: avgOrNull(rating_kp)
+  description: Arithmetic mean of available Kinopoisk ratings.
+  d3format: .2f
+  currency: null
+  extra: {}
+  warning_text: null
+columns:
+- column_name: observed_at
+  verbose_name: null
+  is_dttm: true
+  is_active: true
+  type: Nullable(DateTime64(6, 'UTC'))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_kp_bin
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_imdb
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_tmdb
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_kp
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Decimal(5, 2))
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: age_rating
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int16)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: production_year
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int16)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: decade
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int16)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: movie_length_minutes
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int32)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_imdb
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_tmdb
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: votes_kp
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(Int64)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: alternative_name
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(String)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: rating_mpaa
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(String)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: name
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Nullable(String)
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: movie_id
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: Int64
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+- column_name: movie_label
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: String
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  datetime_format: null
+  extra: {}
+version: 1.0.0
+database_uuid: cfec1435-ee36-515b-81b8-9e53c80370bf
