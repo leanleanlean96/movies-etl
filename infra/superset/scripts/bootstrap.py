@@ -636,6 +636,8 @@ def bootstrap(overwrite):
         missing = expected - before.keys()
         if not overwrite and not missing:
             verify_existing_dashboards(superset, inventory, before)
+            for uuid in sorted(assets.items["dataset"]):
+                superset.query_dataset(before["dataset", uuid]["id"])
             log("all managed UUIDs are present. Existing Superset edits were retained.")
             return
 
