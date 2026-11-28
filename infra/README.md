@@ -44,7 +44,7 @@ mkdir -p airflow/logs
 | `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` | MinIO Console, S3 connection Airflow и Spark |
 | `GREENPLUM_PASSWORD` | Пароль `gpadmin`, задаётся при создании кластера |
 | `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD` | Доступ к ClickHouse; пример использует `etl` |
-| `CLICKHOUSE_READER_PASSWORD` | Отдельный пароль ограниченного Superset reader; обязателен для `warehouse-init` |
+| `CLICKHOUSE_READER_PASSWORD` | Отдельный пароль ограниченного Superset reader; обязателен для `superset-reader-init` |
 | `SUPERSET_SECRET_KEY`, `SUPERSET_DB_PASSWORD`, `SUPERSET_ADMIN_PASSWORD` | Профиль `bi`. Ключ шифрования, пароль PostgreSQL и начальный пароль администратора Superset |
 | `KINOPOISK_API_KEY` | Ключ PoiskKino; обязателен для извлечения, replay его не использует |
 | `AIRFLOW_ALERT_EMAIL` | Получатели ошибки daily DAG через запятую; пустое значение отключает отправку |
@@ -88,11 +88,11 @@ staging/core/mart и ClickHouse DDL, создают бакеты, Airflow pool �
 
 ```bash
 docker compose --profile bi ps -a
-docker compose logs --tail=100 warehouse-init airflow-dag-init superset-bootstrap
+docker compose logs --tail=100 warehouse-init airflow-dag-init superset-reader-init superset-bootstrap
 ```
 
 `airflow-init`, `minio-init`, `warehouse-init`, `airflow-dag-init` и
-`superset-init` должны завершиться с кодом 0; долгоживущие службы должны быть
+`superset-init` и `superset-reader-init` должны завершиться с кодом 0; долгоживущие службы должны быть
 `healthy`. Superset bootstrap ожидает первую успешную публикацию ClickHouse.
 Ручной повтор публикации описан в [ClickHouse README](clickhouse/README.md),
 расписание и replay — в [Airflow README](../airflow/README.md), а настройки BI —

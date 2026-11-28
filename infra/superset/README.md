@@ -24,7 +24,7 @@ docker compose --profile bi ps -a superset superset-init superset-db
 При полном запуске `docker compose --profile bi up -d --build` Compose также
 запускает `superset-bootstrap`: он ждёт успешную daily публикацию, импортирует
 версионируемые активы и проверяет запросы датасетов. Требуется отдельный
-`CLICKHOUSE_READER_PASSWORD` в `.env`; `warehouse-init` создаёт reader с SELECT
+`CLICKHOUSE_READER_PASSWORD` в `.env`; `superset-reader-init` создаёт reader с SELECT
 только к двум рейтинг/популярность витринам.
 
 `superset-init` применяет миграции, обновляет роли и при первом запуске создаёт
@@ -46,30 +46,20 @@ docker compose --profile bi run --rm --no-deps superset-bootstrap --overwrite
 
 ## Подключение к ClickHouse
 
-`warehouse-init` создаёт `superset_reader` и выдаёт доступ к
-`mart_movie_scores_current` и `mart_movie_popularity_weekly`. При ручном
-создании или смене секрета используйте ClickHouse admin account:
+При первом запуске `superset-reader-init` создаёт `superset_reader` и выдаёт
+доступ к `mart_movie_scores_current` и `mart_movie_popularity_weekly`. Bootstrap
+автоматически создаёт подключение Superset.
+
+Для ротации обновите `CLICKHOUSE_READER_PASSWORD` в `.env` и выполните:
 
 ```bash
-docker compose exec clickhouse sh -c \
-  'clickhouse-client --user "$CLICKHOUSE_USER" --password "$CLICKHOUSE_PASSWORD"'
+docker compose run --rm --no-deps superset-reader-init rotate-reader
 ```
 
-Замените `your_generated_password` отдельным паролем для `superset_reader`.
-
-```sql
-CREATE USER IF NOT EXISTS superset_reader IDENTIFIED WITH sha256_password BY 'your_generated_password';
-GRANT SELECT ON mart.mart_movie_scores_current TO superset_reader;
-GRANT SELECT ON mart.mart_movie_popularity_weekly TO superset_reader;
-```
-
-В Superset откройте **Settings → Database Connections → + Database**. Выберите
-**ClickHouse** и переключитесь на подключение по **SQLAlchemy URI**. Проверьте
-подключение через **Test Connection**, затем сохраните его.
-
-```text
-clickhousedb://superset_reader:<пароль>@clickhouse:8123/mart
-```
+Затем обновите пароль в существующем подключении Superset через
+**Settings → Database Connections** и выполните **Test Connection**. Если
+вы готовы применить все версии объектов из Git, можно использовать явный bootstrap
+с `--overwrite`.
 
 Для специальных символов в пароле используйте URL-кодирование. Здесь
 `clickhouse:8123` — адрес сервиса внутри сети Compose.
