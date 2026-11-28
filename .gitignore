@@ -16,5 +16,11 @@ dbt/logs/
 docs/
 CHANGELOG.md
 
+# Local development workflow, measurements and reports
+/.de/
+/CODE_PRACTICES_REVIEW.md
+/dbt/MODEL_REPORT.md
+**/.user.yml
+
 # Local copies of documentation excluded from the repository
 /.local-docs/
