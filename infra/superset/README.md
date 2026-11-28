@@ -106,14 +106,18 @@ T10 и T12 частичны; поведение T11 подтверждено п�
 
 ## Скриншоты дашбордов
 
-Скриншоты сделаны в Superset на витринах с реальными данными.
-В каталоге 29 747 фильмов, у 26 529 доступны оба рейтинга.
+Скриншоты показывают дашборды целиком на витринах с реальными данными.
+В каталоге 29 747 фильмов, у 26 529 доступны оба рейтинга. В Movie Analytics
+и Rating Comparison раскрыты панели фильтров. У Cinema Overview нет
+глобальных фильтров.
 
-![Cinema Overview, данные PoiskKino](screenshots/cinema-overview.png)
+![Cinema Overview](screenshots/cinema-overview.png)
 
-![Movie Analytics, данные PoiskKino](screenshots/movie-analytics.png)
+![Movie Analytics, вкладка Analytics с фильтрами](screenshots/movie-analytics.png)
 
-![Rating Comparison, данные PoiskKino](screenshots/rating-comparison.png)
+![Movie Analytics, вкладка Movie Details с фильтрами](screenshots/movie-analytics-details.png)
+
+![Rating Comparison с фильтрами](screenshots/rating-comparison.png)
 
 ## Остановка
 
