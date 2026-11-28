@@ -98,8 +98,8 @@ metrics, 18 charts, 3 опубликованных dashboards и 7 native filter
 dataset query прошли.
 
 На экране два недельных графика были пусты, потому что фикстура содержала
-неполную неделю. Movie Analytics показал ошибку datasource metadata HTTP 422
-(T09), поэтому его скриншот исключён до ретеста исправления. Полное применение
+неполную неделю. После исправления типа лимита строк Movie Analytics загрузил
+метаданные датасетов с HTTP 200, а BI smoke test прошёл. Полное применение
 всех фильтров, горизонтальное cross-filtering и полный catchup не проверены.
 T10 и T12 частичны; поведение T11 подтверждено предыдущим прогоном C. Отчёт и
 логи остаются в каталоге временных артефактов тестового прогона, не в Git.
@@ -117,6 +117,8 @@ T10 и T12 частичны; поведение T11 подтверждено п�
 Проверенные скриншоты:
 
 ![Cinema Overview, синтетическая выборка](screenshots/cinema-overview-synthetic.png)
+
+![Movie Analytics, синтетическая выборка](screenshots/movie-analytics-synthetic.png)
 
 ![Rating Comparison, синтетическая выборка](screenshots/rating-comparison-synthetic.png)
 
